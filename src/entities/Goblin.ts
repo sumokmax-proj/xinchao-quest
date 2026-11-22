@@ -1,0 +1,219 @@
+import type * as THREE from 'three';
+import { CONFIG, type EnemyKind } from '../config';
+import { faceAngle } from '../combat/BumpAttack';
+import { telegraphDone, telegraphHits, telegraphProgress, type TelegraphState } from '../combat/Telegraph';
+import { easeInOut, easeOut, lerpAngle } from '../core/math';
+import { rand, type Rng } from '../core/random';
+import { makeTelegraphMesh } from '../render/Effects';
+import { disposeObject, makeGoblin, type GoblinModel } from '../render/models';
+import { HpLabel } from '../ui/Labels';
+import type { Cell, Grid, Step } from '../world/Grid';
+import { chooseGoblinStep, isAdjacent } from './goblinBrain';
+
+export type GoblinState = 'idle' | 'dazed' | 'dead';
+
+export interface GoblinContext {
+  running: boolean;
+  player: Cell;
+  playerHp: number;
+  isFree: (c: number, r: number, self: Goblin) => boolean;
+  onHitPlayer: (damage: number) => void;
+  nowMs: number;
+}
+
+export class Goblin {
+  readonly boss: boolean;
+  readonly stats: (typeof CONFIG.enemies)[EnemyKind];
+  readonly model: GoblinModel;
+  readonly hpLabel: HpLabel;
+  x: number;
+  z: number;
+  private fromX: number;
+  private fromZ: number;
+  private moveT = 1;
+  hp: number;
+  readonly maxHp: number;
+  /** 처치까지 남은 퀴즈 수 */
+  need: number;
+  state: GoblinState = 'idle';
+  moveCooldown: number;
+  attackCooldown: number;
+  private tele: { state: TelegraphState; mesh: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial> } | null = null;
+  private flashT = 0;
+  private knockX = 0;
+  private knockZ = 0;
+  private lungeT = 1;
+  private deathT = 0;
+  private spawnT = 0;
+  private face: number | undefined;
+  private readonly wanderDelay: number;
+  gone = false;
+
+  constructor(
+    readonly kind: EnemyKind,
+    public c: number,
+    public r: number,
+    private grid: Grid,
+    private scene: THREE.Scene,
+    private rng: Rng,
+  ) {
+    this.boss = kind === 'boss';
+    this.stats = CONFIG.enemies[kind];
+    this.hp = this.maxHp = this.stats.hp;
+    this.need = this.stats.quizCount;
+    const ai = CONFIG.goblinAi;
+    this.moveCooldown = rand(rng, ai.firstMoveMin, ai.firstMoveMax);
+    this.attackCooldown = ai.firstAttackDelay;
+    this.wanderDelay = rand(rng, ai.wanderMin, ai.wanderMax);
+    this.x = this.fromX = grid.worldX(c);
+    this.z = this.fromZ = grid.worldZ(r);
+    this.model = makeGoblin(this.boss);
+    this.model.group.position.set(this.x, 0, this.z);
+    this.model.group.scale.setScalar(0.01);
+    scene.add(this.model.group);
+    this.hpLabel = new HpLabel(this.boss);
+  }
+
+  get dazed(): boolean {
+    return this.state === 'dazed';
+  }
+  get alive(): boolean {
+    return this.state !== 'dead';
+  }
+
+  /** 맞았을 때: 하얗게 번쩍, 맞은 방향으로 살짝 밀림 */
+  takeHit(dir: Step): void {
+    this.flashT = CONFIG.feel.hitFlash;
+    this.knockX = dir.dc * CONFIG.feel.knockback;
+    this.knockZ = dir.dr * CONFIG.feel.knockback;
+  }
+
+  /** HP 0 → 빈사 (퀴즈 시작) */
+  daze(): void {
+    this.state = 'dazed';
+    this.clearTelegraph();
+  }
+
+  /** 오답 → HP 회복 후 다시 움직임 */
+  recover(hp: number, need: number): void {
+    this.hp = hp;
+    this.need = need;
+    this.state = 'idle';
+    this.moveCooldown = CONFIG.goblinAi.resumeMoveDelay;
+    this.attackCooldown = CONFIG.goblinAi.resumeAttackDelay;
+  }
+
+  kill(): void {
+    this.state = 'dead';
+    this.deathT = 0;
+  }
+
+  clearTelegraph(): void {
+    if (!this.tele) return;
+    this.scene.remove(this.tele.mesh);
+    this.tele.mesh.material.dispose();
+    this.tele = null;
+  }
+
+  dispose(): void {
+    this.clearTelegraph();
+    this.scene.remove(this.model.group);
+    disposeObject(this.model.group);
+    this.hpLabel.remove();
+  }
+
+  update(dt: number, ctx: GoblinContext): void {
+    const grp = this.model.group;
+    const baseScale = this.stats.scale;
+    if (this.spawnT < 1) {
+      this.spawnT = Math.min(1, this.spawnT + dt * 3);
+      grp.scale.setScalar(baseScale * easeOut(this.spawnT));
+    }
+    if (this.state === 'dead') {
+      this.deathT += dt * 2.6;
+      grp.scale.setScalar(Math.max(0.001, baseScale * (1 - this.deathT)));
+      grp.rotation.y += dt * 12;
+      if (this.deathT >= 1) {
+        this.dispose();
+        this.gone = true;
+      }
+      return;
+    }
+    if (this.flashT > 0) {
+      this.flashT -= dt;
+      const k = Math.max(0, this.flashT) * 6;
+      this.model.mats.forEach((m) => m.emissive.setRGB(k, k, k));
+    } else this.model.mats.forEach((m) => m.emissive.setRGB(0, 0, 0));
+    this.knockX *= Math.pow(0.0005, dt);
+    this.knockZ *= Math.pow(0.0005, dt);
+
+    if (this.moveT < 1) this.moveT = Math.min(1, this.moveT + dt / this.stats.moveDuration);
+    const e = easeInOut(this.moveT);
+    this.x = this.fromX + (this.grid.worldX(this.c) - this.fromX) * e;
+    this.z = this.fromZ + (this.grid.worldZ(this.r) - this.fromZ) * e;
+    let lx = 0;
+    let lz = 0;
+    if (this.lungeT < 1 && this.face !== undefined) {
+      this.lungeT += dt * 4;
+      const s = Math.sin(Math.min(1, this.lungeT) * Math.PI) * 0.3;
+      lx = Math.sin(this.face) * s;
+      lz = Math.cos(this.face) * s;
+    }
+    grp.position.set(this.x + this.knockX + lx, this.moveT < 1 ? Math.sin(this.moveT * Math.PI) * 0.07 : 0, this.z + this.knockZ + lz);
+    if (this.face !== undefined) grp.rotation.y = lerpAngle(grp.rotation.y, this.face, Math.min(1, dt * 14));
+    this.model.club.rotation.x = this.lungeT < 1 ? 0.5 + Math.sin(Math.min(1, this.lungeT) * Math.PI) * 1.6 : 0.5;
+
+    if (this.state === 'dazed') {
+      grp.rotation.z = Math.sin(ctx.nowMs / 120) * 0.14;
+      this.model.stars.visible = true;
+      this.model.stars.rotation.y += dt * 5;
+      return;
+    }
+    grp.rotation.z = 0;
+    this.model.stars.visible = false;
+    if (!ctx.running) return;
+
+    this.moveCooldown -= dt;
+    this.attackCooldown -= dt;
+
+    // 빨간 예고 진행 중
+    if (this.tele) {
+      const t = this.tele.state;
+      t.elapsed += dt;
+      this.tele.mesh.material.opacity = 0.18 + 0.5 * telegraphProgress(t) + Math.sin(t.elapsed * 30) * 0.08;
+      if (telegraphDone(t)) {
+        this.lungeT = 0;
+        if (telegraphHits(t, ctx.player, ctx.playerHp)) ctx.onHitPlayer(this.stats.damage);
+        this.clearTelegraph();
+        this.attackCooldown = this.stats.attackRecover;
+      }
+      return;
+    }
+    if (this.moveT < 1) return;
+
+    const me = { c: this.c, r: this.r };
+    if (isAdjacent(me, ctx.player)) {
+      this.face = faceAngle(ctx.player.c - this.c, ctx.player.r - this.r);
+      if (this.attackCooldown <= 0 && ctx.playerHp > 0) this.startTelegraph(ctx.player);
+      return;
+    }
+    if (this.moveCooldown > 0) return;
+    const { step, cooldown } = chooseGoblinStep(me, ctx.player, this.kind, this.wanderDelay, (c, r) => ctx.isFree(c, r, this), this.rng);
+    this.moveCooldown = cooldown;
+    if (step) {
+      this.fromX = this.x;
+      this.fromZ = this.z;
+      this.c += step.dc;
+      this.r += step.dr;
+      this.moveT = 0;
+      this.face = faceAngle(step.dc, step.dr);
+    }
+  }
+
+  private startTelegraph(target: Cell): void {
+    const mesh = makeTelegraphMesh(this.grid.worldX(target.c), this.grid.worldZ(target.r));
+    this.scene.add(mesh);
+    this.tele = { state: { cell: { ...target }, elapsed: 0, duration: this.stats.telegraph }, mesh };
+    this.face = faceAngle(target.c - this.c, target.r - this.r);
+  }
+}

@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#13241f">
+<title>씬짜오 퀘스트</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@500;700;800&family=Jua&display=swap" rel="stylesheet">
+</head>
+<body>
+<div id="game">
+  <div id="labels"></div>
+  <div class="dim" id="dim"></div>
+  <div id="quizLayer">
+    <div class="quiz" id="quiz" hidden>
+      <p class="qk" id="qKind">무슨 뜻?</p>
+      <p class="qq" id="qText"></p>
+      <div class="qa">
+        <button type="button" id="ansL"><span class="arr">←</span><span id="ansLText"></span></button>
+        <button type="button" id="ansR"><span id="ansRText"></span><span class="arr">→</span></button>
+      </div>
+      <div class="qt"><i id="qTimer"></i></div>
+    </div>
+  </div>
+  <div class="hurt" id="hurt"></div>
+
+  <header class="hud">
+    <div class="me">
+      <div class="row"><span class="lv" id="lv">Lv 1</span><div class="bar" id="hpBar"><i id="hpFill"></i><b id="hpText">100 / 100</b></div></div>
+      <div class="bar exp"><i id="expFill" style="width:0%"></i></div>
+    </div>
+    <div class="side">
+      <span class="chip" id="waveChip">웨이브 1 / 3</span>
+      <span class="chip gold" id="goldChip">0₫</span>
+      <div class="tools"><button type="button" class="tool" id="btnPixel">도트 켬</button><button type="button" class="tool" id="btnSound">소리 켬</button></div>
+    </div>
+  </header>
+
+  <div class="hint" id="hint">고블린 쪽으로 이동하면 자동으로 공격해요</div>
+  <div class="toasts" id="toasts" aria-live="polite"></div>
+  <div id="bannerHost"></div>
+
+  <nav class="dpad" id="dpad" aria-label="이동">
+    <button type="button" data-dir="up" aria-label="위"><svg viewBox="0 0 24 24"><path d="M12 5l8 11H4z"/></svg></button>
+    <button type="button" data-dir="left" aria-label="왼쪽"><svg viewBox="0 0 24 24"><path d="M5 12l11-8v16z"/></svg></button>
+    <button type="button" data-dir="right" aria-label="오른쪽"><svg viewBox="0 0 24 24"><path d="M19 12L8 20V4z"/></svg></button>
+    <button type="button" data-dir="down" aria-label="아래"><svg viewBox="0 0 24 24"><path d="M12 19L4 8h16z"/></svg></button>
+  </nav>
+
+  <section class="overlay" id="startOv">
+    <h1>씬짜오 퀘스트 3D</h1>
+    <p class="sub">마을 앞 풀밭 · <span id="version"></span></p>
+    <ol class="howto">
+      <li>방향 버튼(PC는 방향키)으로 한 칸씩 움직여요. 꾹 누르면 계속 걸어요.</li>
+      <li><b>고블린 쪽으로 이동하면 검을 휘둘러요.</b></li>
+      <li>바닥이 <b>빨갛게</b> 변하면 곧 공격이 와요. 옆 칸으로 피하세요.</li>
+      <li>HP가 0이 된 고블린 머리 위에 문제가 떠요. <b>← / →</b>로 답하세요. 틀리면 고블린이 HP를 조금 회복해요.</li>
+    </ol>
+    <button type="button" class="btn" id="btnStart">모험 시작</button>
+    <p class="note" id="startNote"></p>
+  </section>
+
+  <section class="overlay" id="endOv" hidden>
+    <h2 id="endTitle">클리어</h2>
+    <p class="sub" id="endSub"></p>
+    <dl class="stats" id="endStats"></dl>
+    <ul class="wrongs" id="endWrongs"></ul>
+    <button type="button" class="btn" id="btnRetry">다시 하기</button>
+  </section>
+
+  <div class="err" id="err" hidden><p>3D 화면을 불러오지 못했어요. 이 브라우저에서 WebGL이 꺼져 있는 것 같아요. 다른 브라우저에서 다시 열어 주세요.</p></div>
+</div>
+<script type="module" src="/src/main.ts"></script>
+</body>
+</html>

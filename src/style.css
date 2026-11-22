@@ -75,6 +75,9 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
 .qa .arr{font-family:var(--font-display);color:#a07a2a;font-size:18px}
 .qa button.right{background:var(--good);border-color:#3e9a55}
 .qa button.wrong{background:#f2a497;border-color:var(--red)}
+/* 아직 퀴즈에 한 번도 답해 본 적 없으면 ←/→ 버튼이 깜빡여서 '이걸 누르는구나'를 알려줌 */
+.quiz.teach .qa button:not(.right):not(.wrong){animation:teach .9s ease-in-out infinite;border-color:#e0b040}
+@keyframes teach{0%,100%{transform:scale(1)}50%{transform:scale(1.07);box-shadow:0 0 0 3px #f3d27a}}
 .qt{height:5px;border-radius:999px;background:#ded6bd;overflow:hidden;margin-top:8px}
 .qt i{display:block;height:100%;width:100%;background:var(--teal)}
 .qt i.low{background:var(--red)}
@@ -97,8 +100,6 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
 .overlay h1{font-size:42px}
 .overlay h2{font-size:34px}
 .overlay .sub{margin:-8px 0 0;text-align:center;color:var(--muted)}
-.howto{margin:0;padding:12px 14px 12px 30px;background:var(--panel);border:1px solid var(--line);border-radius:14px;font-size:14px;line-height:1.55;color:var(--muted);display:grid;gap:4px}
-.howto b{color:var(--ink)}
 .btn{min-height:54px;border-radius:14px;border:0;background:var(--gold);color:#2a1a00;font-weight:800;font-size:17px;box-shadow:0 4px 0 #9a6612}
 .btn:active{transform:translateY(3px);box-shadow:0 1px 0 #9a6612}
 .stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0}
@@ -115,4 +116,4 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
 @keyframes drop{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
 @keyframes pop{0%{opacity:0;transform:scale(.7)}15%{opacity:1;transform:scale(1.05)}25%{transform:scale(1)}80%{opacity:1}100%{opacity:0}}
 @keyframes bubble{from{opacity:0;margin-top:10px}to{opacity:1;margin-top:0}}
-@media (prefers-reduced-motion: reduce){.banner,.float,.toast,.quiz{animation-duration:.01s}}
+@media (prefers-reduced-motion: reduce){.banner,.float,.toast,.quiz{animation-duration:.01s}.quiz.teach .qa button:not(.right):not(.wrong){animation:none;box-shadow:0 0 0 3px #f3d27a}}

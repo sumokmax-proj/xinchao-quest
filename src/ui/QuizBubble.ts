@@ -29,6 +29,11 @@ export class QuizBubble {
     this.dpad.classList.remove('quizmode');
   }
 
+  /** 처음 퀴즈를 만난 사람에게 ←/→ 답 버튼을 깜빡여 보여준다 */
+  setTeach(on: boolean): void {
+    this.root.classList.toggle('teach', on);
+  }
+
   setQuestion(q: Question, remaining: number, isBoss: boolean): void {
     this.kind.textContent = isBoss && remaining > 1 ? `${q.kindLabel} · 대장은 ${remaining}문제` : q.kindLabel;
     this.text.textContent = q.prompt;

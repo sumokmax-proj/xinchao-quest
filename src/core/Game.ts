@@ -274,6 +274,7 @@ export class Game {
       question: makeQuestion(WORDS, this.save.wrong, this.rng),
     };
     this.showQuestion();
+    this.bubble.setTeach(!this.save.answeredQuiz);
     this.bubble.show();
     sfx.quiz();
   }
@@ -307,6 +308,11 @@ export class Game {
     this.run.quiz++;
     this.bubble.markResult(q, side);
     this.save.wrong = updateWrongNote(this.save.wrong, q.word.vi, ok);
+    if (side !== null) {
+      // 시간 초과가 아니라 직접 답했으면, 답하는 법을 안 것으로 보고 다음부터 깜빡이지 않음
+      this.save.answeredQuiz = true;
+      this.bubble.setTeach(false);
+    }
     persist(this.save);
     speak(q.word.vi);
     const outcome = resolveQuiz(g.need, ok, g.maxHp, g.stats.quizCount);

@@ -74,6 +74,11 @@ export class Goblin {
     this.hpLabel = new HpLabel(this.boss);
   }
 
+  /** 빨간 예고 중인 칸 (없으면 null). 자동 플레이 점검용 */
+  get telegraphCell(): Cell | null {
+    return this.tele ? { ...this.tele.state.cell } : null;
+  }
+
   get dazed(): boolean {
     return this.state === 'dazed';
   }

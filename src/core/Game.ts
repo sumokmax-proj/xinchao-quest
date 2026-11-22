@@ -29,6 +29,18 @@ const MAP = mapJson as MapData;
 const WAVES = wavesJson as WaveData[];
 const WORDS = wordsJson as Word[];
 
+/** debugSnapshot()이 돌려주는 형식 */
+export interface DebugSnapshot {
+  running: boolean;
+  result: 'win' | 'lose' | null;
+  map: string[];
+  player: { c: number; r: number; hp: number; maxHp: number; level: number; gold: number; ready: boolean };
+  goblins: { c: number; r: number; hp: number; maxHp: number; state: string; boss: boolean; telegraph: Cell | null }[];
+  quiz: { answerSide: 0 | 1; acceptsInput: boolean; prompt: string } | null;
+  wave: { index: number; total: number };
+  stats: { quiz: number; correct: number; kills: number; hurt: number };
+}
+
 interface QuizRun {
   goblin: Goblin;
   timeLeft: number;
@@ -56,6 +68,8 @@ export class Game {
   private queued: Dir | null = null; // 한 번 톡 누른 방향 (이동 중이어도 다음 칸에서 실행)
   private hintHidden = false;
   private run = { quiz: 0, correct: 0, wrong: new Map<string, string>(), kills: 0, start: 0 };
+  private result: 'win' | 'lose' | null = null;
+  private hurtCount = 0;
 
   constructor() {
     buildMap(this.scene, this.grid);
@@ -86,6 +100,8 @@ export class Game {
     this.player.reset(MAP.start);
     this.cam.snapTo(this.player.x, this.player.z);
     this.run = { quiz: 0, correct: 0, wrong: new Map(), kills: 0, start: performance.now() };
+    this.result = null;
+    this.hurtCount = 0;
     this.waves.reset();
     this.held = [];
     this.queued = null;
@@ -110,6 +126,7 @@ export class Game {
 
   private finish(win: boolean): void {
     this.running = false;
+    this.result = win ? 'win' : 'lose';
     const summary: EndSummary = {
       win,
       correct: this.run.correct,
@@ -246,6 +263,7 @@ export class Game {
   private hurtPlayer(damage: number): void {
     const p = this.player;
     p.stats.hp = applyDamage(p.stats.hp, damage);
+    this.hurtCount++;
     floatText(this.cam.camera, p.x, 1.3, p.z, '-' + damage, 'hurtn');
     sfx.hurt();
     this.cam.shake(CONFIG.feel.shakeHurt);
@@ -437,6 +455,33 @@ export class Game {
       this.bubble.position(s.x, s.y, screenW);
       this.bubble.setTimeLeft(this.quiz.timeLeft / CONFIG.quiz.timeLimit);
     }
+  }
+
+  /**
+   * 지금 게임 상태를 평범한 객체로 돌려준다. 자동 플레이 점검(scripts/playtest.mjs)이 읽는 약속된 형식.
+   * 게임 내부 구조가 바뀌어도 이 형식은 유지한다. 개발 서버에서만 window.__game으로 열린다.
+   */
+  debugSnapshot(): DebugSnapshot {
+    const p = this.player;
+    const q = this.quiz;
+    return {
+      running: this.running,
+      result: this.result,
+      map: this.grid.rows.slice(),
+      player: { c: p.c, r: p.r, hp: p.stats.hp, maxHp: p.stats.maxHp, level: p.stats.level, gold: p.stats.gold, ready: p.ready },
+      goblins: this.goblins
+        .filter((g) => g.alive)
+        .map((g) => ({ c: g.c, r: g.r, hp: g.hp, maxHp: g.maxHp, state: g.state, boss: g.boss, telegraph: g.telegraphCell })),
+      quiz: q
+        ? {
+            answerSide: q.question.options.indexOf(q.question.answer) as 0 | 1,
+            acceptsInput: !q.locked && performance.now() >= q.armedAt,
+            prompt: q.question.prompt,
+          }
+        : null,
+      wave: { index: this.waves.index, total: WAVES.length },
+      stats: { quiz: this.run.quiz, correct: this.run.correct, kills: this.run.kills, hurt: this.hurtCount },
+    };
   }
 
   private updateHud(): void {

@@ -56,6 +56,7 @@ export const CONFIG = {
   goblinAi: {
     chaseRange: 7, // 이 거리(칸, 가로+세로) 안이면 플레이어를 쫓아옴
     chaseStepJitter: 0.3,
+    pathSearchDepth: 14, // 쫓아올 때 나무·바위를 돌아가는 길을 최대 몇 걸음까지 찾을지
     wanderMin: 1, // 멀리 있을 때 어슬렁거리는 간격 (고블린마다 1~2초 중 하나)
     wanderMax: 2,
     wanderJitter: 0.6,

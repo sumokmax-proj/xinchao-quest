@@ -1,0 +1,896 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>씬짜오 퀘스트 3D</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@500;700;800&family=Jua&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* Dusk field outside a Hanoi village: deep moss ground, lantern gold for rewards, lacquer red for danger, river teal for the hero. Portrait column, HUD on top, D-pad at the bottom. */
+  --night:#13241f;
+  --panel:rgba(14,28,24,.84);
+  --line:rgba(255,255,255,.16);
+  --ink:#f6efdc;
+  --muted:#b5c7bf;
+  --gold:#f2b84b;
+  --red:#e0553f;
+  --teal:#5cc8c0;
+  --good:#7bd88f;
+  --font-display:'Jua','Apple SD Gothic Neo','Noto Sans KR',sans-serif;
+  --font-body:'Be Vietnam Pro','Apple SD Gothic Neo','Noto Sans KR','Malgun Gothic',sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%;margin:0;background:var(--night);color:var(--ink);font-family:var(--font-body);overflow:hidden;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+#game{position:relative;height:100%;max-width:480px;margin:0 auto;overflow:hidden;background:#1a3329}
+#game canvas{position:absolute;inset:0;display:block;width:100%;height:100%}
+#game canvas.pixel{image-rendering:pixelated}
+#labels,#quizLayer{position:absolute;inset:0;pointer-events:none}
+#labels{z-index:1}
+.dim{position:absolute;inset:0;z-index:2;pointer-events:none;opacity:0;transition:opacity .25s;
+  background:radial-gradient(circle at var(--fx,50%) var(--fy,50%), transparent 0 80px, rgba(4,10,8,.62) 170px)}
+.dim.on{opacity:1}
+#quizLayer{z-index:3}
+.hurt{position:absolute;inset:0;z-index:4;pointer-events:none;box-shadow:inset 0 0 90px rgba(224,85,63,.85);opacity:0;transition:opacity .3s}
+.hurt.on{opacity:1;transition:none}
+
+/* HUD */
+.hud{position:absolute;z-index:5;top:0;left:0;right:0;padding:calc(10px + env(safe-area-inset-top)) 12px 0;display:flex;gap:8px;align-items:flex-start}
+.me{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:8px 10px;display:grid;gap:6px}
+.me .row{display:flex;align-items:center;gap:8px}
+.lv{font-family:var(--font-display);font-size:18px;color:var(--teal);min-width:42px}
+.bar{position:relative;height:16px;border-radius:999px;background:rgba(0,0,0,.45);overflow:hidden;flex:1}
+.bar i{position:absolute;inset:0 auto 0 0;width:100%;background:var(--teal);border-radius:999px;transition:width .25s}
+.bar.low i{background:var(--red)}
+.bar b{position:relative;display:block;text-align:center;font-size:11px;line-height:16px;font-variant-numeric:tabular-nums}
+.bar.exp{height:5px}
+.bar.exp i{background:var(--gold)}
+.side{display:grid;gap:6px;justify-items:end}
+.chip{background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:5px 10px;font-size:12px;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+.chip.gold{color:var(--gold)}
+.tools{display:flex;gap:6px}
+.tool{background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:5px 9px;font-size:11px}
+.hint{position:absolute;z-index:5;left:50%;bottom:calc(214px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--panel);border-radius:999px;padding:6px 12px;font-size:12px;color:var(--muted);white-space:nowrap;transition:opacity .4s}
+.banner{position:absolute;z-index:6;left:0;right:0;top:34%;text-align:center;font-family:var(--font-display);font-size:34px;color:var(--gold);text-shadow:0 3px 0 #000;pointer-events:none;animation:pop 1.6s ease-out forwards}
+.banner small{display:block;font-family:var(--font-body);font-size:14px;color:var(--ink);text-shadow:0 1px 0 #000;margin-top:4px}
+.toasts{position:absolute;z-index:6;top:calc(96px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);display:grid;gap:6px;width:calc(100% - 32px);pointer-events:none}
+.toast{background:var(--ink);color:#1f2a27;border-radius:12px;padding:8px 12px;font-size:14px;text-align:center;box-shadow:0 4px 0 rgba(0,0,0,.35);animation:drop .25s ease-out}
+.toast b{font-weight:800}
+.toast.good{background:var(--good)}
+.toast.bad{background:#f2a497}
+.toast.level{background:var(--teal);color:#06231f}
+
+/* labels */
+.ghp{position:absolute;left:0;top:0;width:46px;height:6px;margin-left:-23px;border-radius:3px;background:rgba(0,0,0,.55);overflow:hidden}
+.ghp i{display:block;height:100%;width:100%;background:var(--red);transition:width .15s}
+.ghp.boss{width:70px;margin-left:-35px;height:8px}
+.float{position:absolute;left:0;top:0;transform:translate(-50%,-50%);font-family:var(--font-display);font-size:22px;color:#fff;text-shadow:0 2px 0 #000,0 0 6px #000;animation:rise .9s ease-out forwards;white-space:nowrap}
+.float.crit{font-size:30px;color:#ffdf6b}
+.float.hurtn{color:#ff8c7a}
+.float.heal{color:var(--good)}
+
+/* quiz bubble */
+.quiz{position:absolute;left:0;top:0;width:min(300px,calc(100% - 24px));transform:translate(-50%,-100%);background:var(--ink);color:#1f2a27;border-radius:16px;padding:10px 10px 8px;box-shadow:0 6px 0 rgba(0,0,0,.35);pointer-events:auto;animation:bubble .2s ease-out}
+.quiz::after{content:"";position:absolute;left:var(--tail,50%);bottom:-9px;margin-left:-9px;border:9px solid transparent;border-bottom:0;border-top-color:var(--ink)}
+.qk{margin:0;text-align:center;font-size:12px;font-weight:700;color:#3d6b60}
+.qq{margin:2px 0 8px;text-align:center;font-size:26px;font-weight:800;line-height:1.2}
+.qa{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.qa button{min-height:48px;border-radius:10px;border:2px solid #d3cbb0;background:#fffaf0;color:#1f2a27;font-weight:700;font-size:15px;display:flex;align-items:center;justify-content:center;gap:6px;padding:4px 6px;line-height:1.2}
+.qa .arr{font-family:var(--font-display);color:#a07a2a;font-size:18px}
+.qa button.right{background:var(--good);border-color:#3e9a55}
+.qa button.wrong{background:#f2a497;border-color:var(--red)}
+.qt{height:5px;border-radius:999px;background:#ded6bd;overflow:hidden;margin-top:8px}
+.qt i{display:block;height:100%;width:100%;background:var(--teal)}
+.qt i.low{background:var(--red)}
+
+/* d-pad */
+.dpad{position:absolute;z-index:5;left:50%;bottom:calc(14px + env(safe-area-inset-bottom));transform:translateX(-50%);display:grid;grid-template-columns:repeat(3,62px);grid-template-rows:repeat(3,58px);gap:4px}
+.dpad button{border:2px solid rgba(255,255,255,.18);background:rgba(14,28,24,.62);border-radius:14px;display:grid;place-items:center;touch-action:none;transition:background .15s,border-color .15s,opacity .15s}
+.dpad button svg{width:26px;height:26px;fill:var(--ink);opacity:.85}
+.dpad button.down-now{background:rgba(92,200,192,.45)}
+.dpad [data-dir=up]{grid-column:2;grid-row:1}
+.dpad [data-dir=left]{grid-column:1;grid-row:2}
+.dpad [data-dir=right]{grid-column:3;grid-row:2}
+.dpad [data-dir=down]{grid-column:2;grid-row:3}
+.dpad.quizmode [data-dir=up],.dpad.quizmode [data-dir=down]{opacity:.25}
+.dpad.quizmode [data-dir=left],.dpad.quizmode [data-dir=right]{background:rgba(242,184,75,.4);border-color:var(--gold)}
+
+/* overlays */
+.overlay{position:absolute;inset:0;z-index:10;background:rgba(10,20,17,.72);display:flex;flex-direction:column;justify-content:center;gap:14px;padding:24px 22px calc(24px + env(safe-area-inset-bottom))}
+.overlay h1,.overlay h2{margin:0;font-family:var(--font-display);font-weight:400;color:var(--gold);text-align:center;text-shadow:0 3px 0 #6b4510;text-wrap:balance}
+.overlay h1{font-size:42px}
+.overlay h2{font-size:34px}
+.overlay .sub{margin:-8px 0 0;text-align:center;color:var(--muted)}
+.howto{margin:0;padding:12px 14px 12px 30px;background:var(--panel);border:1px solid var(--line);border-radius:14px;font-size:14px;line-height:1.55;color:var(--muted);display:grid;gap:4px}
+.howto b{color:var(--ink)}
+.btn{min-height:54px;border-radius:14px;border:0;background:var(--gold);color:#2a1a00;font-weight:800;font-size:17px;box-shadow:0 4px 0 #9a6612}
+.btn:active{transform:translateY(3px);box-shadow:0 1px 0 #9a6612}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0}
+.stats div{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:8px 10px}
+.stats dt{font-size:12px;color:var(--muted)}
+.stats dd{margin:2px 0 0;font-family:var(--font-display);font-size:20px;font-variant-numeric:tabular-nums}
+.wrongs{margin:0;padding:0;list-style:none;display:grid;gap:6px;max-height:28vh;overflow:auto}
+.wrongs li{background:var(--panel);border-radius:10px;padding:6px 10px;font-size:14px;display:flex;justify-content:space-between;gap:8px}
+.wrongs li span{color:var(--muted)}
+.note{margin:0;font-size:12px;color:var(--muted);text-align:center}
+.err{position:absolute;inset:0;z-index:20;display:grid;place-items:center;padding:24px;text-align:center;background:var(--night)}
+
+@keyframes rise{0%{opacity:0;margin-top:6px}15%{opacity:1}100%{opacity:0;margin-top:-46px}}
+@keyframes drop{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
+@keyframes pop{0%{opacity:0;transform:scale(.7)}15%{opacity:1;transform:scale(1.05)}25%{transform:scale(1)}80%{opacity:1}100%{opacity:0}}
+@keyframes bubble{from{opacity:0;margin-top:10px}to{opacity:1;margin-top:0}}
+@media (prefers-reduced-motion: reduce){.banner,.float,.toast,.quiz{animation-duration:.01s}}
+</style>
+</head>
+<body>
+<div id="game">
+  <div id="labels"></div>
+  <div class="dim" id="dim"></div>
+  <div id="quizLayer">
+    <div class="quiz" id="quiz" hidden>
+      <p class="qk" id="qKind">무슨 뜻?</p>
+      <p class="qq" id="qText"></p>
+      <div class="qa">
+        <button type="button" id="ansL"><span class="arr">←</span><span id="ansLText"></span></button>
+        <button type="button" id="ansR"><span id="ansRText"></span><span class="arr">→</span></button>
+      </div>
+      <div class="qt"><i id="qTimer"></i></div>
+    </div>
+  </div>
+  <div class="hurt" id="hurt"></div>
+
+  <header class="hud">
+    <div class="me">
+      <div class="row"><span class="lv" id="lv">Lv 1</span><div class="bar" id="hpBar"><i id="hpFill"></i><b id="hpText">100 / 100</b></div></div>
+      <div class="bar exp"><i id="expFill" style="width:0%"></i></div>
+    </div>
+    <div class="side">
+      <span class="chip" id="waveChip">웨이브 1 / 3</span>
+      <span class="chip gold" id="goldChip">0₫</span>
+      <div class="tools"><button type="button" class="tool" id="btnPixel">도트 켬</button><button type="button" class="tool" id="btnSound">소리 켬</button></div>
+    </div>
+  </header>
+
+  <div class="hint" id="hint">고블린 쪽으로 이동하면 자동으로 공격해요</div>
+  <div class="toasts" id="toasts" aria-live="polite"></div>
+  <div id="bannerHost"></div>
+
+  <nav class="dpad" id="dpad" aria-label="이동">
+    <button type="button" data-dir="up" aria-label="위"><svg viewBox="0 0 24 24"><path d="M12 5l8 11H4z"/></svg></button>
+    <button type="button" data-dir="left" aria-label="왼쪽"><svg viewBox="0 0 24 24"><path d="M5 12l11-8v16z"/></svg></button>
+    <button type="button" data-dir="right" aria-label="오른쪽"><svg viewBox="0 0 24 24"><path d="M19 12L8 20V4z"/></svg></button>
+    <button type="button" data-dir="down" aria-label="아래"><svg viewBox="0 0 24 24"><path d="M12 19L4 8h16z"/></svg></button>
+  </nav>
+
+  <section class="overlay" id="startOv">
+    <h1>씬짜오 퀘스트 3D</h1>
+    <p class="sub">마을 앞 풀밭 · 프로토타입</p>
+    <ol class="howto">
+      <li>방향 버튼(PC는 방향키)으로 한 칸씩 움직여요. 꾹 누르면 계속 걸어요.</li>
+      <li><b>고블린 쪽으로 이동하면 검을 휘둘러요.</b></li>
+      <li>바닥이 <b>빨갛게</b> 변하면 곧 공격이 와요. 옆 칸으로 피하세요.</li>
+      <li>HP가 0이 된 고블린 머리 위에 문제가 떠요. <b>← / →</b>로 답하세요. 틀리면 고블린이 HP를 조금 회복해요.</li>
+    </ol>
+    <button type="button" class="btn" id="btnStart">모험 시작</button>
+    <p class="note" id="startNote"></p>
+  </section>
+
+  <section class="overlay" id="endOv" hidden>
+    <h2 id="endTitle">클리어</h2>
+    <p class="sub" id="endSub"></p>
+    <dl class="stats" id="endStats"></dl>
+    <ul class="wrongs" id="endWrongs"></ul>
+    <button type="button" class="btn" id="btnRetry">다시 하기</button>
+  </section>
+
+  <div class="err" id="err" hidden><p>3D 화면을 불러오지 못했어요. 이 브라우저에서 WebGL이 꺼져 있거나, 3D 라이브러리를 받아오지 못했어요. 다른 브라우저에서 다시 열어 주세요.</p></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.149.0/build/three.min.js"></script>
+<script>
+(function(){
+'use strict';
+const $ = s => document.querySelector(s);
+const game = $('#game');
+if (!window.THREE) { $('#err').hidden = false; return; }
+
+/* ================= data ================= */
+const WORDS = [
+  ['xin chào','안녕하세요'], ['cảm ơn','감사합니다'], ['xin lỗi','죄송합니다'],
+  ['tạm biệt','잘 가요'], ['vâng','네 (공손하게)'], ['không','아니요'],
+  ['tên','이름'], ['tôi','나, 저'], ['bạn','친구, 너'],
+  ['người Hàn Quốc','한국 사람'], ['người Việt Nam','베트남 사람'],
+  ['bố','아빠'], ['mẹ','엄마'], ['anh trai','형, 오빠'], ['chị gái','누나, 언니'],
+  ['em gái','여동생'], ['vợ','아내'], ['chồng','남편'], ['gia đình','가족'],
+  ['khỏe','건강하다'], ['tuổi','나이'], ['làm việc','일하다'],
+  ['công ty','회사'], ['nhà','집'], ['sống','살다'], ['ăn','먹다'], ['uống','마시다'], ['ngủ','자다']
+].map(([vi, ko]) => ({vi, ko}));
+
+const MAP = [
+  'TTTTTTTTTTT',
+  'T.........T',
+  'T..R....B.T',
+  'T.........T',
+  'T.B...R...T',
+  'T.........T',
+  'T....B..R.T',
+  'T.R.......T',
+  'T.........T',
+  'T...R..B..T',
+  'T.........T',
+  'T.B.....R.T',
+  'T.........T',
+  'T...B.R...T',
+  'T.........T',
+  'T.........T',
+  'TTTTTTTTTTT'
+];
+const GW = MAP[0].length, GH = MAP.length;
+const START = {c:5, r:15};
+const WAVES = [
+  {label:'고블린 3마리', list:['g','g','g']},
+  {label:'고블린 4마리', list:['g','g','g','g']},
+  {label:'대장 고블린 등장', list:['g','g','boss']}
+];
+const QUIZ_TIME = 5;
+const HEAL_RATIO = 0.15;
+
+/* ================= save ================= */
+const KEY = 'xinchao-3d-v1';
+let save = {wrong:{}, sound:true, pixel:true};
+try { const raw = localStorage.getItem(KEY); if (raw) save = Object.assign(save, JSON.parse(raw)); } catch (e) {}
+function persist(){ try { localStorage.setItem(KEY, JSON.stringify(save)); } catch (e) {} }
+
+/* ================= helpers ================= */
+const rand = (a, b) => a + Math.random() * (b - a);
+const pick = a => a[Math.floor(Math.random() * a.length)];
+const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const fmtD = n => n.toLocaleString('vi-VN') + '₫';
+const worldX = c => c - (GW - 1) / 2;
+const worldZ = r => r - (GH - 1) / 2;
+const blocked = (c, r) => c < 0 || r < 0 || c >= GW || r >= GH || MAP[r][c] !== '.';
+const DIRS = {up:{dc:0, dr:-1}, down:{dc:0, dr:1}, left:{dc:-1, dr:0}, right:{dc:1, dr:0}};
+
+/* ================= sound ================= */
+let actx = null, viVoice = null;
+function loadVoices(){ try { viVoice = speechSynthesis.getVoices().find(v => /^vi/i.test(v.lang)) || null; } catch (e) { viVoice = null; } }
+if ('speechSynthesis' in window) { loadVoices(); try { speechSynthesis.onvoiceschanged = loadVoices; } catch (e) {} }
+function speak(text){
+  if (!viVoice || !save.sound) return;
+  try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.voice = viVoice; u.lang = viVoice.lang; u.rate = .85; speechSynthesis.speak(u); } catch (e) {}
+}
+function unlockAudio(){
+  try { if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)(); if (actx.state === 'suspended') actx.resume(); } catch (e) {}
+}
+function tone(freqs, dur = .07, type = 'square', vol = .045){
+  if (!actx || !save.sound) return;
+  try {
+    let t = actx.currentTime;
+    freqs.forEach(f => {
+      const o = actx.createOscillator(), g = actx.createGain();
+      o.type = type; o.frequency.value = f;
+      g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+      o.connect(g); g.connect(actx.destination); o.start(t); o.stop(t + dur); t += dur * .85;
+    });
+  } catch (e) {}
+}
+const sfx = {
+  swing: () => tone([520, 300], .05, 'triangle', .05),
+  hit:   () => tone([330, 500], .06),
+  crit:  () => tone([520, 780, 1040], .06),
+  hurt:  () => tone([200, 120], .12, 'sawtooth', .05),
+  quiz:  () => tone([660, 880], .08, 'triangle', .06),
+  good:  () => tone([523, 659, 784, 1046], .08, 'triangle', .07),
+  bad:   () => tone([300, 200, 140], .1, 'sawtooth', .04),
+  level: () => tone([392, 523, 659, 784, 1046], .09, 'triangle', .07),
+  bump:  () => tone([120], .05, 'square', .03)
+};
+
+/* ================= three setup ================= */
+let renderer;
+try { renderer = new THREE.WebGLRenderer({antialias:false, powerPreference:'low-power'}); }
+catch (e) { $('#err').hidden = false; return; }
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFShadowMap;
+game.insertBefore(renderer.domElement, game.firstChild);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color('#1a3329');
+const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, .1, 100);
+const CAM_OFF = new THREE.Vector3(0, 12, 6.5);
+const camTarget = new THREE.Vector3();
+let shake = 0;
+
+scene.add(new THREE.HemisphereLight(0xcfe8ff, 0x2f4a24, .5));
+const sun = new THREE.DirectionalLight(0xffe0b0, .78);
+sun.position.set(5, 12, 5);
+sun.castShadow = true;
+sun.shadow.mapSize.set(1024, 1024);
+Object.assign(sun.shadow.camera, {left:-12, right:12, top:12, bottom:-12, near:1, far:40});
+scene.add(sun); scene.add(sun.target);
+
+const mat = c => new THREE.MeshLambertMaterial({color:c});
+
+// ground
+(function buildMap(){
+  const outer = new THREE.Mesh(new THREE.PlaneGeometry(80, 80), mat('#2c4a2a'));
+  outer.rotation.x = -Math.PI / 2; outer.position.y = -.31; outer.receiveShadow = true; scene.add(outer);
+  const tiles = new THREE.InstancedMesh(new THREE.BoxGeometry(1, .3, 1), new THREE.MeshLambertMaterial({color:0xffffff}), GW * GH);
+  const m = new THREE.Matrix4(), col = new THREE.Color();
+  let i = 0;
+  for (let r = 0; r < GH; r++) for (let c = 0; c < GW; c++) {
+    m.makeTranslation(worldX(c), -.15, worldZ(r));
+    tiles.setMatrixAt(i, m);
+    const edge = MAP[r][c] === 'T';
+    col.set(edge ? '#4f7f3c' : ((r + c) % 2 ? '#5a9442' : '#64a04a'));
+    col.offsetHSL(0, 0, (Math.random() - .5) * .03);
+    tiles.setColorAt(i, col); i++;
+  }
+  tiles.receiveShadow = true; scene.add(tiles);
+
+  const trunkG = new THREE.CylinderGeometry(.1, .14, .45, 6), coneG = new THREE.ConeGeometry(.46, .95, 7), roundG = new THREE.IcosahedronGeometry(.44, 0);
+  const rockG = new THREE.DodecahedronGeometry(.36, 0), bushG = new THREE.IcosahedronGeometry(.34, 0);
+  const trunkM = mat('#7a4e2d'), leafA = mat('#2f6b34'), leafB = mat('#3f8a3c'), rockM = mat('#8d918c'), bushM = mat('#5aa04a');
+  for (let r = 0; r < GH; r++) for (let c = 0; c < GW; c++) {
+    const ch = MAP[r][c], x = worldX(c), z = worldZ(r);
+    if (ch === 'T') {
+      const g = new THREE.Group();
+      const trunk = new THREE.Mesh(trunkG, trunkM); trunk.position.y = .22; g.add(trunk);
+      const round = Math.random() < .4;
+      const leaf = new THREE.Mesh(round ? roundG : coneG, Math.random() < .5 ? leafA : leafB);
+      leaf.position.y = round ? .78 : .85; g.add(leaf);
+      g.position.set(x + rand(-.08, .08), 0, z + rand(-.08, .08)); g.scale.setScalar(rand(.85, 1.1)); g.rotation.y = rand(0, 6);
+      g.traverse(o => { o.castShadow = true; }); scene.add(g);
+    } else if (ch === 'R') {
+      const rock = new THREE.Mesh(rockG, rockM); rock.position.set(x, .2, z); rock.scale.set(1, .72, 1); rock.rotation.y = rand(0, 6);
+      rock.castShadow = true; rock.receiveShadow = true; scene.add(rock);
+    } else if (ch === 'B') {
+      const bush = new THREE.Mesh(bushG, bushM); bush.position.set(x, .25, z); bush.scale.set(1.1, .85, 1.1);
+      bush.castShadow = true; scene.add(bush);
+    }
+  }
+})();
+
+// slash arc + telegraph resources
+const teleGeo = new THREE.PlaneGeometry(.92, .92);
+const particleGeo = new THREE.BoxGeometry(.12, .12, .12);
+
+/* ================= models ================= */
+function makeHero(){
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.CapsuleGeometry(.2, .24, 4, 10), mat('#3b6fd8')); body.position.y = .42; g.add(body);
+  const belt = new THREE.Mesh(new THREE.CylinderGeometry(.215, .215, .06, 10), mat('#5b3a22')); belt.position.y = .36; g.add(belt);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(.25, 14, 10), mat('#f2c9a0')); head.position.y = .9; g.add(head);
+  const hair = new THREE.Mesh(new THREE.SphereGeometry(.265, 14, 10, 0, Math.PI * 2, 0, Math.PI * .55), mat('#4a2c1a'));
+  hair.position.set(0, .93, -.02); hair.rotation.x = -.35; g.add(hair);
+  const eyeM = mat('#1c1c1c');
+  [-.085, .085].forEach(x => { const e = new THREE.Mesh(new THREE.SphereGeometry(.035, 8, 6), eyeM); e.position.set(x, .9, .225); g.add(e); });
+  const cape = new THREE.Mesh(new THREE.BoxGeometry(.36, .42, .04), mat('#c0392b')); cape.position.set(0, .5, -.2); cape.rotation.x = .18; g.add(cape);
+  // sword
+  const pivot = new THREE.Group(); pivot.position.set(.27, .48, .06); g.add(pivot);
+  const handle = new THREE.Mesh(new THREE.BoxGeometry(.05, .14, .05), mat('#5b3a22')); handle.position.y = .02; pivot.add(handle);
+  const guard = new THREE.Mesh(new THREE.BoxGeometry(.2, .04, .06), mat('#e0b040')); guard.position.y = .1; pivot.add(guard);
+  const blade = new THREE.Mesh(new THREE.BoxGeometry(.07, .55, .025), new THREE.MeshLambertMaterial({color:'#e8eef2', emissive:'#334455'})); blade.position.y = .4; pivot.add(blade);
+  pivot.rotation.x = .55;
+  // slash arc
+  const arc = new THREE.Mesh(new THREE.RingGeometry(.45, .78, 18, 1, Math.PI * .1, Math.PI * .8),
+    new THREE.MeshBasicMaterial({color:'#ffffff', transparent:true, opacity:0, side:THREE.DoubleSide, depthWrite:false}));
+  arc.rotation.x = -Math.PI / 2; arc.position.y = .5; g.add(arc);
+  g.traverse(o => { if (o.isMesh && o !== arc) o.castShadow = true; });
+  return {group:g, pivot, arc, body};
+}
+
+function makeGoblin(boss){
+  const g = new THREE.Group();
+  const skin = new THREE.MeshLambertMaterial({color: boss ? '#4f8a2e' : '#6aa83e', emissive:'#000000'});
+  const cloth = new THREE.MeshLambertMaterial({color: boss ? '#6b2f2f' : '#8a6a3a', emissive:'#000000'});
+  const body = new THREE.Mesh(new THREE.CapsuleGeometry(.19, .16, 4, 10), cloth); body.position.y = .36; g.add(body);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(.27, 14, 10), skin); head.position.y = .78; head.scale.set(1.05, .92, 1); g.add(head);
+  [-1, 1].forEach(s => {
+    const ear = new THREE.Mesh(new THREE.ConeGeometry(.08, .32, 6), skin);
+    ear.position.set(s * .3, .84, 0); ear.rotation.z = -s * 1.25; g.add(ear);
+  });
+  const eyeW = mat('#ffe06b'), eyeB = mat('#1a1a1a');
+  [-.1, .1].forEach(x => {
+    const e = new THREE.Mesh(new THREE.SphereGeometry(.055, 8, 6), eyeW); e.position.set(x, .82, .22); g.add(e);
+    const p = new THREE.Mesh(new THREE.SphereGeometry(.028, 6, 5), eyeB); p.position.set(x, .82, .27); g.add(p);
+  });
+  const nose = new THREE.Mesh(new THREE.ConeGeometry(.045, .14, 5), skin); nose.position.set(0, .74, .27); nose.rotation.x = Math.PI / 2; g.add(nose);
+  const club = new THREE.Group(); club.position.set(.26, .4, .05); g.add(club);
+  const stick = new THREE.Mesh(new THREE.CylinderGeometry(.04, .07, .5, 6), mat('#7a4e2d')); stick.position.y = .2; club.add(stick);
+  club.rotation.x = .5;
+  if (boss) {
+    const band = new THREE.Mesh(new THREE.TorusGeometry(.25, .045, 6, 14), mat('#d63b2b')); band.position.y = .93; band.rotation.x = Math.PI / 2; g.add(band);
+    const horn = new THREE.Mesh(new THREE.ConeGeometry(.07, .22, 6), mat('#e8dcc0')); horn.position.set(0, 1.1, 0); g.add(horn);
+  }
+  // dazed stars
+  const stars = new THREE.Group(); stars.position.y = 1.18; stars.visible = false; g.add(stars);
+  for (let i = 0; i < 3; i++) {
+    const s = new THREE.Mesh(new THREE.OctahedronGeometry(.07, 0), new THREE.MeshBasicMaterial({color:'#ffd84a'}));
+    const a = i / 3 * Math.PI * 2; s.position.set(Math.cos(a) * .25, 0, Math.sin(a) * .25); stars.add(s);
+  }
+  g.traverse(o => { if (o.isMesh) o.castShadow = true; });
+  if (boss) g.scale.setScalar(1.35);
+  return {group:g, club, stars, mats:[skin, cloth]};
+}
+
+/* ================= state ================= */
+const hero = makeHero();
+scene.add(hero.group);
+let player, goblins = [], particles = [], timers = [], quiz = null, running = false;
+let waveIdx = 0, waveBusy = false, stats;
+let held = [], queued = null;
+
+function resetGame(){
+  goblins.forEach(removeGoblin); goblins = [];
+  particles.forEach(p => scene.remove(p.mesh)); particles = [];
+  timers = []; endQuiz(true);
+  player = {c:START.c, r:START.r, x:worldX(START.c), z:worldZ(START.r), fx:0, fz:0, moveT:1, moveDur:.15,
+    face:Math.PI, atkCd:0, swingT:1, lungeX:0, lungeZ:0, hp:100, maxHp:100, atk:10, level:1, exp:0, gold:0};
+  player.fx = player.x; player.fz = player.z;
+  hero.group.position.set(player.x, 0, player.z); hero.group.rotation.y = Math.PI;
+  camTarget.set(player.x, 0, player.z - 2.3);
+  stats = {quiz:0, correct:0, wrong:new Map(), kills:0, start:performance.now()};
+  waveIdx = 0; waveBusy = false;
+  held = []; queued = null;
+  spawnWave(0, true);
+  updateHUD();
+}
+
+/* ================= goblins ================= */
+function goblinAt(c, r){ return goblins.find(g => g.state !== 'dead' && g.c === c && g.r === r); }
+function freeFor(c, r, self){ return !blocked(c, r) && !(player.c === c && player.r === r) && !goblins.some(g => g !== self && g.state !== 'dead' && g.c === c && g.r === r); }
+
+function spawnGoblin(kind){
+  const boss = kind === 'boss';
+  let c, r, tries = 0;
+  do { c = 1 + Math.floor(Math.random() * (GW - 2)); r = 1 + Math.floor(Math.random() * 8); tries++; }
+  while ((!freeFor(c, r, null) || Math.abs(c - player.c) + Math.abs(r - player.r) < 5) && tries < 200);
+  const m = makeGoblin(boss);
+  m.group.position.set(worldX(c), 0, worldZ(r));
+  m.group.rotation.y = 0;
+  scene.add(m.group);
+  const hpEl = document.createElement('div'); hpEl.className = 'ghp' + (boss ? ' boss' : ''); hpEl.innerHTML = '<i></i>';
+  $('#labels').appendChild(hpEl);
+  const g = {c, r, x:worldX(c), z:worldZ(r), fx:worldX(c), fz:worldZ(r), moveT:1, moveDur:boss ? .3 : .26,
+    boss, hp:boss ? 70 : 30, maxHp:boss ? 70 : 30, need:boss ? 2 : 1, state:'idle', moveCd:rand(.4, 1.2), atkCd:.6,
+    tele:null, flashT:0, kx:0, kz:0, lungeT:1, deathT:0, spawnT:0, m, hpEl, wander:rand(1, 2)};
+  m.group.scale.multiplyScalar(.01);
+  goblins.push(g);
+}
+function removeGoblin(g){ scene.remove(g.m.group); g.hpEl.remove(); if (g.tele) { scene.remove(g.tele.mesh); g.tele = null; } }
+
+function spawnWave(i, silent){
+  const w = WAVES[i];
+  w.list.forEach(k => spawnGoblin(k));
+  $('#waveChip').textContent = '웨이브 ' + (i + 1) + ' / ' + WAVES.length;
+  if (!silent) banner('웨이브 ' + (i + 1), w.label);
+}
+
+function startTele(g){
+  const mesh = new THREE.Mesh(teleGeo, new THREE.MeshBasicMaterial({color:'#ff3b2b', transparent:true, opacity:.2, depthWrite:false}));
+  mesh.rotation.x = -Math.PI / 2; mesh.position.set(worldX(player.c), .02, worldZ(player.r));
+  scene.add(mesh);
+  g.tele = {mesh, c:player.c, r:player.r, t:0, dur:g.boss ? .62 : .78};
+  g.face = Math.atan2(player.c - g.c, player.r - g.r);
+}
+
+function updateGoblin(g, dt){
+  const grp = g.m.group;
+  if (g.spawnT < 1) { g.spawnT = Math.min(1, g.spawnT + dt * 3); grp.scale.setScalar((g.boss ? 1.35 : 1) * easeOut(g.spawnT)); }
+  if (g.state === 'dead') {
+    g.deathT += dt * 2.6;
+    grp.scale.setScalar(Math.max(.001, (g.boss ? 1.35 : 1) * (1 - g.deathT)));
+    grp.rotation.y += dt * 12;
+    if (g.deathT >= 1) { removeGoblin(g); g.gone = true; }
+    return;
+  }
+  // flash
+  if (g.flashT > 0) { g.flashT -= dt; g.m.mats.forEach(m => m.emissive.setRGB(1, 1, 1).multiplyScalar(Math.max(0, g.flashT) * 6)); }
+  else g.m.mats.forEach(m => m.emissive.setRGB(0, 0, 0));
+  g.kx *= Math.pow(.0005, dt); g.kz *= Math.pow(.0005, dt);
+
+  // movement tween
+  if (g.moveT < 1) { g.moveT = Math.min(1, g.moveT + dt / g.moveDur); }
+  const e = easeInOut(g.moveT);
+  g.x = g.fx + (worldX(g.c) - g.fx) * e; g.z = g.fz + (worldZ(g.r) - g.fz) * e;
+  let lx = 0, lz = 0;
+  if (g.lungeT < 1) { g.lungeT += dt * 4; const s = Math.sin(Math.min(1, g.lungeT) * Math.PI) * .3; lx = Math.sin(g.face) * s; lz = Math.cos(g.face) * s; }
+  grp.position.set(g.x + g.kx + lx, g.moveT < 1 ? Math.sin(g.moveT * Math.PI) * .07 : 0, g.z + g.kz + lz);
+  if (g.face !== undefined) grp.rotation.y = lerpAngle(grp.rotation.y, g.face, Math.min(1, dt * 14));
+  g.m.club.rotation.x = g.lungeT < 1 ? .5 + Math.sin(Math.min(1, g.lungeT) * Math.PI) * 1.6 : .5;
+
+  if (g.state === 'dazed') {
+    grp.rotation.z = Math.sin(performance.now() / 120) * .14;
+    g.m.stars.visible = true; g.m.stars.rotation.y += dt * 5;
+    return;
+  }
+  grp.rotation.z = 0; g.m.stars.visible = false;
+  if (!running) return;
+
+  g.moveCd -= dt; g.atkCd -= dt;
+  if (g.tele) {
+    g.tele.t += dt;
+    const k = g.tele.t / g.tele.dur;
+    g.tele.mesh.material.opacity = .18 + .5 * k + Math.sin(g.tele.t * 30) * .08;
+    if (k >= 1) {
+      g.lungeT = 0;
+      if (player.c === g.tele.c && player.r === g.tele.r && player.hp > 0) hurtPlayer(g.boss ? 14 : 8);
+      scene.remove(g.tele.mesh); g.tele = null; g.atkCd = g.boss ? .9 : 1.15;
+    }
+    return;
+  }
+  if (g.moveT < 1) return;
+  const dc = player.c - g.c, dr = player.r - g.r, dist = Math.abs(dc) + Math.abs(dr);
+  if (dist === 1) {
+    g.face = Math.atan2(dc, dr);
+    if (g.atkCd <= 0 && player.hp > 0) startTele(g);
+    return;
+  }
+  if (g.moveCd > 0) return;
+  let opts;
+  if (dist <= 7) {
+    const sx = Math.sign(dc), sz = Math.sign(dr);
+    const a = {dc:sx, dr:0}, b = {dc:0, dr:sz};
+    opts = Math.abs(dc) >= Math.abs(dr) ? [a, b] : [b, a];
+    opts = opts.filter(o => o.dc || o.dr);
+    g.moveCd = (g.boss ? .45 : .55) + rand(0, .3);
+  } else {
+    opts = shuffle(Object.values(DIRS));
+    g.moveCd = g.wander + rand(0, .6);
+  }
+  for (const o of opts) {
+    const nc = g.c + o.dc, nr = g.r + o.dr;
+    if (freeFor(nc, nr, g)) { g.fx = g.x; g.fz = g.z; g.c = nc; g.r = nr; g.moveT = 0; g.face = Math.atan2(o.dc, o.dr); break; }
+  }
+}
+
+/* ================= player ================= */
+function tryAct(name){
+  const d = DIRS[name];
+  player.face = Math.atan2(d.dc, d.dr);
+  const nc = player.c + d.dc, nr = player.r + d.dr;
+  const g = goblinAt(nc, nr);
+  if (g) {
+    if (g.state === 'dazed') return true;
+    if (player.atkCd > 0) return false;
+    attack(g, d); return true;
+  }
+  if (blocked(nc, nr)) { player.lungeT = 0; player.atkCd = .18; sfx.bump(); return true; }
+  player.fx = player.x; player.fz = player.z; player.c = nc; player.r = nr; player.moveT = 0;
+  return true;
+}
+
+function attack(g, d){
+  player.atkCd = .36; player.swingT = 0;
+  sfx.swing();
+  const crit = Math.random() < .18;
+  const dmg = Math.round(player.atk * (crit ? 1.6 : 1) * rand(.9, 1.1));
+  g.hp = Math.max(0, g.hp - dmg);
+  g.flashT = .12; g.kx = d.dc * .22; g.kz = d.dr * .22;
+  floatAt(g.x, 1.3, g.z, (crit ? '크리티컬 ' : '') + dmg, crit ? 'crit' : '');
+  crit ? sfx.crit() : sfx.hit();
+  shake = Math.max(shake, crit ? .16 : .08);
+  if (g.hp <= 0) startQuiz(g);
+}
+
+function hurtPlayer(dmg){
+  player.hp = Math.max(0, player.hp - dmg);
+  floatAt(player.x, 1.3, player.z, '-' + dmg, 'hurtn');
+  sfx.hurt(); shake = Math.max(shake, .22);
+  const h = $('#hurt'); h.classList.add('on'); setTimeout(() => h.classList.remove('on'), 60);
+  updateHUD();
+  if (player.hp <= 0) { endQuiz(true); running = false; after(.8, () => showEnd(false)); }
+}
+
+function updatePlayer(dt){
+  player.atkCd -= dt;
+  if (player.moveT < 1) player.moveT = Math.min(1, player.moveT + dt / player.moveDur);
+  if (running && !quiz && player.moveT >= 1 && player.hp > 0) {
+    const name = queued || held[held.length - 1];
+    if (name && tryAct(name)) queued = null;
+  }
+}
+
+function animateHero(dt){
+  const e = easeInOut(player.moveT);
+  player.x = player.fx + (worldX(player.c) - player.fx) * e;
+  player.z = player.fz + (worldZ(player.r) - player.fz) * e;
+  let lx = 0, lz = 0;
+  if (player.swingT < 1) {
+    player.swingT = Math.min(1, player.swingT + dt / .26);
+    const t = player.swingT;
+    hero.pivot.rotation.x = t < .25 ? lerp(.55, -.9, t / .25) : t < .6 ? lerp(-.9, 2.1, (t - .25) / .35) : lerp(2.1, .55, (t - .6) / .4);
+    hero.arc.material.opacity = t > .3 && t < .75 ? .75 * (1 - (t - .3) / .45) : 0;
+    const s = Math.sin(t * Math.PI) * .14; lx = Math.sin(player.face) * s; lz = Math.cos(player.face) * s;
+  } else { hero.pivot.rotation.x = .55; hero.arc.material.opacity = 0; }
+  if (player.lungeT !== undefined && player.lungeT < 1) { player.lungeT += dt * 6; const s = Math.sin(Math.min(1, player.lungeT) * Math.PI) * .1; lx += Math.sin(player.face) * s; lz += Math.cos(player.face) * s; }
+  const bob = player.moveT < 1 ? Math.sin(player.moveT * Math.PI) * .09 : Math.sin(performance.now() / 300) * .015;
+  hero.group.position.set(player.x + lx, bob, player.z + lz);
+  hero.group.rotation.y = lerpAngle(hero.group.rotation.y, player.face, Math.min(1, dt * 18));
+}
+
+/* ================= quiz ================= */
+function makeQuestion(){
+  const wrongKeys = Object.keys(save.wrong);
+  let item = null;
+  if (wrongKeys.length && Math.random() < .4) item = WORDS.find(w => w.vi === pick(wrongKeys));
+  if (!item) item = pick(WORDS);
+  let other; do { other = pick(WORDS); } while (other === item);
+  const vi2ko = Math.random() < .5;
+  const options = shuffle(vi2ko ? [item.ko, other.ko] : [item.vi, other.vi]);
+  return {item, vi2ko, text:vi2ko ? item.vi : item.ko, kind:vi2ko ? '무슨 뜻?' : '베트남어로?', options, answer:vi2ko ? item.ko : item.vi};
+}
+
+function startQuiz(g){
+  g.state = 'dazed';
+  if (g.tele) { scene.remove(g.tele.mesh); g.tele = null; }
+  held = []; queued = null;
+  quiz = {g, t:QUIZ_TIME, armedAt:performance.now() + 280, locked:false, q:null};
+  nextQuestion();
+  $('#quiz').hidden = false; $('#dim').classList.add('on'); $('#dpad').classList.add('quizmode');
+  sfx.quiz();
+}
+function nextQuestion(){
+  quiz.q = makeQuestion(); quiz.t = QUIZ_TIME; quiz.locked = false;
+  $('#qKind').textContent = quiz.q.kind;
+  const qt = $('#qText'); qt.textContent = quiz.q.text; qt.lang = quiz.q.vi2ko ? 'vi' : 'ko';
+  $('#ansLText').textContent = quiz.q.options[0]; $('#ansRText').textContent = quiz.q.options[1];
+  ['#ansL', '#ansR'].forEach(s => { const b = $(s); b.className = ''; b.lang = quiz.q.vi2ko ? 'ko' : 'vi'; });
+  if (quiz.g.boss && quiz.g.need > 1) $('#qKind').textContent = quiz.q.kind + ' · 대장은 ' + quiz.g.need + '문제';
+}
+function answer(side){
+  if (!quiz || quiz.locked || performance.now() < quiz.armedAt) return;
+  resolveQuiz(side === null ? null : quiz.q.options[side], side);
+}
+function resolveQuiz(choice, side){
+  const q = quiz.q, g = quiz.g, ok = choice === q.answer;
+  quiz.locked = true; stats.quiz++;
+  const btns = [$('#ansL'), $('#ansR')];
+  btns.forEach((b, i) => { if (q.options[i] === q.answer) b.classList.add('right'); else if (i === side) b.classList.add('wrong'); });
+  if (ok) {
+    stats.correct++;
+    if (save.wrong[q.item.vi]) { save.wrong[q.item.vi]++; if (save.wrong[q.item.vi] >= 3) delete save.wrong[q.item.vi]; persist(); }
+    sfx.good(); speak(q.item.vi);
+    g.need--;
+    if (g.need > 0) {
+      toast(`<b>정답!</b> ${q.item.vi} = ${q.item.ko} · 한 문제 더`, 'good');
+      after(.5, () => { if (quiz && quiz.g === g) nextQuestion(); });
+    } else {
+      toast(`<b>정답!</b> ${q.item.vi} = ${q.item.ko}`, 'good');
+      after(.35, () => finishGoblin(g));
+    }
+  } else {
+    stats.wrong.set(q.item.vi, q.item.ko);
+    save.wrong[q.item.vi] = 1; persist();
+    sfx.bad(); speak(q.item.vi);
+    toast(`${choice === null ? '시간 초과' : '오답'} · 정답은 <b>${q.answer}</b> (${q.vi2ko ? q.item.vi : q.item.ko})`, 'bad');
+    after(.5, () => {
+      const heal = Math.max(1, Math.round(g.maxHp * HEAL_RATIO));
+      g.hp = heal; g.state = 'idle'; g.moveCd = .7; g.atkCd = .9;
+      if (g.boss) g.need = 2;
+      floatAt(g.x, 1.4, g.z, '+' + heal, 'heal');
+      endQuiz();
+    });
+  }
+}
+function finishGoblin(g){
+  endQuiz();
+  player.swingT = 0; sfx.swing();
+  g.state = 'dead'; g.deathT = 0; stats.kills++;
+  burst(g.x, g.z, g.boss ? 26 : 14, g.boss ? '#d63b2b' : '#6aa83e');
+  shake = Math.max(shake, g.boss ? .35 : .18);
+  const exp = g.boss ? 40 : 12, gold = g.boss ? 20000 : 3000;
+  player.gold += gold; gainExp(exp);
+  floatAt(g.x, 1.6, g.z, `+${exp} EXP · +${fmtD(gold)}`, '');
+  updateHUD();
+}
+function endQuiz(silent){
+  quiz = null;
+  $('#quiz').hidden = true; $('#dim').classList.remove('on'); $('#dpad').classList.remove('quizmode');
+}
+function gainExp(n){
+  player.exp += n;
+  let need = 30 + (player.level - 1) * 20;
+  while (player.exp >= need) {
+    player.exp -= need; player.level++; player.atk += 3; player.maxHp += 10; player.hp = Math.min(player.maxHp, player.hp + 25);
+    toast(`<b>레벨 업!</b> Lv ${player.level} · 공격력 ${player.atk}`, 'level'); sfx.level();
+    need = 30 + (player.level - 1) * 20;
+  }
+}
+
+/* ================= effects ================= */
+function burst(x, z, n, color){
+  const m = new THREE.MeshLambertMaterial({color});
+  for (let i = 0; i < n; i++) {
+    const mesh = new THREE.Mesh(particleGeo, m);
+    mesh.position.set(x, .5, z); scene.add(mesh);
+    const a = rand(0, Math.PI * 2), sp = rand(1.5, 3.5);
+    particles.push({mesh, vx:Math.cos(a) * sp, vy:rand(2.5, 5), vz:Math.sin(a) * sp, life:rand(.6, 1)});
+  }
+}
+function updateParticles(dt){
+  particles = particles.filter(p => {
+    p.life -= dt; p.vy -= 12 * dt;
+    p.mesh.position.x += p.vx * dt; p.mesh.position.y = Math.max(.06, p.mesh.position.y + p.vy * dt); p.mesh.position.z += p.vz * dt;
+    p.mesh.rotation.x += dt * 8; p.mesh.scale.setScalar(Math.max(.01, p.life));
+    if (p.life <= 0) { scene.remove(p.mesh); return false; }
+    return true;
+  });
+}
+
+/* ================= UI ================= */
+const _v = new THREE.Vector3();
+function toScreen(x, y, z){
+  _v.set(x, y, z).project(camera);
+  return {x:(_v.x + 1) / 2 * game.clientWidth, y:(1 - _v.y) / 2 * game.clientHeight};
+}
+function floatAt(x, y, z, text, cls){
+  const p = toScreen(x, y, z);
+  const s = document.createElement('div'); s.className = 'float ' + cls; s.textContent = text;
+  s.style.left = p.x + 'px'; s.style.top = p.y + 'px';
+  $('#labels').appendChild(s); setTimeout(() => s.remove(), 950);
+}
+function toast(html, cls){
+  const t = document.createElement('div'); t.className = 'toast ' + (cls || ''); t.innerHTML = html;
+  const host = $('#toasts'); host.appendChild(t);
+  while (host.children.length > 3) host.firstChild.remove();
+  setTimeout(() => t.remove(), 2200);
+}
+function banner(title, sub){
+  const b = document.createElement('div'); b.className = 'banner';
+  b.innerHTML = title + (sub ? '<small>' + sub + '</small>' : '');
+  $('#bannerHost').appendChild(b); setTimeout(() => b.remove(), 1700);
+}
+function updateHUD(){
+  $('#lv').textContent = 'Lv ' + player.level;
+  $('#hpFill').style.width = (player.hp / player.maxHp * 100) + '%';
+  $('#hpText').textContent = player.hp + ' / ' + player.maxHp;
+  $('#hpBar').classList.toggle('low', player.hp / player.maxHp < .3);
+  $('#expFill').style.width = (player.exp / (30 + (player.level - 1) * 20) * 100) + '%';
+  $('#goldChip').textContent = fmtD(player.gold);
+}
+function updateLabels(){
+  const W = game.clientWidth;
+  goblins.forEach(g => {
+    if (g.state === 'dead') { g.hpEl.style.display = 'none'; return; }
+    const p = toScreen(g.m.group.position.x, g.boss ? 1.75 : 1.3, g.m.group.position.z);
+    g.hpEl.style.display = g.state === 'dazed' ? 'none' : 'block';
+    g.hpEl.style.transform = `translate(${p.x}px,${p.y}px)`;
+    g.hpEl.firstChild.style.width = (g.hp / g.maxHp * 100) + '%';
+  });
+  if (quiz) {
+    const g = quiz.g, p = toScreen(g.m.group.position.x, g.boss ? 1.95 : 1.5, g.m.group.position.z);
+    const el = $('#quiz'), half = el.offsetWidth / 2;
+    const cx = Math.min(W - half - 10, Math.max(half + 10, p.x));
+    const cy = Math.max(el.offsetHeight + 90, p.y);
+    el.style.left = cx + 'px'; el.style.top = cy + 'px';
+    el.style.setProperty('--tail', Math.min(el.offsetWidth - 20, Math.max(20, p.x - cx + half)) + 'px');
+    const d = $('#dim'); d.style.setProperty('--fx', p.x + 'px'); d.style.setProperty('--fy', (p.y + 40) + 'px');
+    const k = Math.max(0, quiz.t / QUIZ_TIME);
+    const ti = $('#qTimer'); ti.style.width = (k * 100) + '%'; ti.classList.toggle('low', k < .35);
+  }
+}
+function showEnd(win){
+  running = false;
+  $('#endTitle').textContent = win ? '풀밭 정화 완료' : '쓰러졌어요';
+  $('#endSub').textContent = win ? '대장 고블린까지 모두 물리쳤어요.' : '다시 도전해 보세요. 틀린 단어는 다음 판에 더 자주 나와요.';
+  const acc = stats.quiz ? Math.round(stats.correct / stats.quiz * 100) : 0;
+  const secs = Math.round((performance.now() - stats.start) / 1000);
+  const rows = [['퀴즈 정답률', `${acc}% (${stats.correct}/${stats.quiz})`], ['처치한 고블린', stats.kills + '마리'], ['레벨', 'Lv ' + player.level], ['걸린 시간', Math.floor(secs / 60) + '분 ' + (secs % 60) + '초']];
+  $('#endStats').innerHTML = rows.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('');
+  const ul = $('#endWrongs'); ul.innerHTML = '';
+  stats.wrong.forEach((ko, vi) => { const li = document.createElement('li'); const a = document.createElement('b'); a.lang = 'vi'; a.textContent = vi; const s = document.createElement('span'); s.textContent = ko; li.append(a, s); ul.appendChild(li); });
+  if (!stats.wrong.size) { const li = document.createElement('li'); li.textContent = '이번 판에 틀린 단어가 없어요'; ul.appendChild(li); }
+  $('#endOv').hidden = false;
+}
+
+/* ================= timers + math ================= */
+function after(sec, fn){ timers.push({t:sec, fn}); }
+function runTimers(dt){ const due = []; timers = timers.filter(x => { x.t -= dt; if (x.t <= 0) { due.push(x.fn); return false; } return true; }); due.forEach(f => f()); }
+const lerp = (a, b, t) => a + (b - a) * Math.max(0, Math.min(1, t));
+const easeInOut = t => t < .5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+const easeOut = t => 1 - Math.pow(1 - t, 3);
+function lerpAngle(a, b, t){ let d = ((b - a + Math.PI) % (Math.PI * 2)) - Math.PI; if (d < -Math.PI) d += Math.PI * 2; return a + d * t; }
+
+/* ================= loop ================= */
+let last = performance.now();
+function frame(now){
+  requestAnimationFrame(frame);
+  const dt = Math.min(.05, (now - last) / 1000); last = now;
+  runTimers(dt);
+  if (player) {
+    updatePlayer(dt);
+    const slow = quiz ? .25 : 1;
+    goblins.forEach(g => updateGoblin(g, (quiz && quiz.g !== g) ? dt * slow : dt));
+    goblins = goblins.filter(g => !g.gone);
+    if (quiz && !quiz.locked && running) { quiz.t -= dt; if (quiz.t <= 0) resolveQuiz(null, -1); }
+    animateHero(dt);
+    if (running && !waveBusy && goblins.length === 0) {
+      waveBusy = true;
+      if (waveIdx + 1 < WAVES.length) after(1.1, () => { waveIdx++; spawnWave(waveIdx); waveBusy = false; });
+      else after(1.2, () => showEnd(true));
+    }
+  }
+  updateParticles(dt);
+  // camera
+  if (player) camTarget.lerp(_tmp.set(player.x, 0, player.z - 2.3), Math.min(1, dt * 6));
+  shake = Math.max(0, shake - dt * 1.4);
+  camera.position.copy(camTarget).add(CAM_OFF);
+  if (shake > 0) camera.position.add(_tmp.set(rand(-1, 1) * shake, 0, rand(-1, 1) * shake));
+  camera.lookAt(camera.position.x - CAM_OFF.x, 0, camera.position.z - CAM_OFF.z);
+  renderer.render(scene, camera);
+  if (player) updateLabels();
+}
+const _tmp = new THREE.Vector3();
+
+function resize(){
+  const w = game.clientWidth, h = game.clientHeight;
+  const viewW = 7.6, viewH = viewW * h / w;
+  Object.assign(camera, {left:-viewW / 2, right:viewW / 2, top:viewH / 2, bottom:-viewH / 2});
+  camera.updateProjectionMatrix();
+  const scale = save.pixel ? Math.max(1, w / 200) : 1;
+  renderer.setPixelRatio(save.pixel ? 1 : Math.min(window.devicePixelRatio || 1, 2));
+  renderer.setSize(Math.round(w / scale), Math.round(h / scale), false);
+  renderer.domElement.classList.toggle('pixel', save.pixel);
+  $('#btnPixel').textContent = save.pixel ? '도트 켬' : '도트 끔';
+  $('#btnSound').textContent = save.sound ? '소리 켬' : '소리 끔';
+}
+window.addEventListener('resize', resize);
+
+/* ================= input ================= */
+const KEYMAP = {ArrowUp:'up', ArrowDown:'down', ArrowLeft:'left', ArrowRight:'right', w:'up', s:'down', a:'left', d:'right', W:'up', S:'down', A:'left', D:'right'};
+function press(name){
+  if (quiz) { if (name === 'left') answer(0); else if (name === 'right') answer(1); return; }
+  held = held.filter(n => n !== name); held.push(name); queued = name;
+  hideHint();
+}
+function release(name){ held = held.filter(n => n !== name); }
+window.addEventListener('keydown', e => {
+  const n = KEYMAP[e.key]; if (!n) return;
+  e.preventDefault(); if (e.repeat) return;
+  if (!$('#startOv').hidden || !$('#endOv').hidden) return;
+  press(n);
+});
+window.addEventListener('keyup', e => { const n = KEYMAP[e.key]; if (n) release(n); });
+window.addEventListener('blur', () => { held = []; });
+document.querySelectorAll('.dpad button').forEach(b => {
+  const n = b.dataset.dir;
+  b.addEventListener('pointerdown', e => { e.preventDefault(); unlockAudio(); b.classList.add('down-now'); try { b.setPointerCapture(e.pointerId); } catch (_) {} press(n); });
+  const up = () => { b.classList.remove('down-now'); release(n); };
+  b.addEventListener('pointerup', up); b.addEventListener('pointercancel', up); b.addEventListener('lostpointercapture', up);
+});
+$('#ansL').addEventListener('click', () => answer(0));
+$('#ansR').addEventListener('click', () => answer(1));
+let swipe = null;
+renderer.domElement.addEventListener('pointerdown', e => { swipe = {x:e.clientX, y:e.clientY}; });
+renderer.domElement.addEventListener('pointerup', e => {
+  if (!swipe) return; const dx = e.clientX - swipe.x, dy = e.clientY - swipe.y; swipe = null;
+  if (Math.max(Math.abs(dx), Math.abs(dy)) < 24) return;
+  const n = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up');
+  press(n); release(n);
+});
+let hintHidden = false;
+function hideHint(){ if (hintHidden) return; hintHidden = true; setTimeout(() => { $('#hint').style.opacity = 0; }, 2500); }
+
+$('#btnStart').addEventListener('click', () => { unlockAudio(); $('#startOv').hidden = true; running = true; banner('웨이브 1', WAVES[0].label); });
+$('#btnRetry').addEventListener('click', () => { unlockAudio(); $('#endOv').hidden = true; resetGame(); running = true; banner('웨이브 1', WAVES[0].label); });
+$('#btnPixel').addEventListener('click', () => { save.pixel = !save.pixel; persist(); resize(); });
+$('#btnSound').addEventListener('click', () => { save.sound = !save.sound; persist(); unlockAudio(); resize(); });
+
+const wc = Object.keys(save.wrong).length;
+$('#startNote').textContent = (wc ? `지난번에 틀린 단어 ${wc}개가 더 자주 나와요. ` : '') + (viVoice ? '정답 발음을 베트남어 음성으로 들려줘요.' : '');
+
+resize();
+resetGame();
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

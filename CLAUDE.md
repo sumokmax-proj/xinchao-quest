@@ -66,6 +66,14 @@ tests/               순수 로직 단위 테스트 (vitest)
 9. 새 npm 패키지를 추가하면 이유를 알린다.
 10. 큰 작업은 시작 전에 계획을 짧게 보여주고 오너 확인을 받는다.
 
+### 로컬 CLI 작업 (2026-11-22부터 병행)
+오너 PC(Windows 11)에서 Claude Code CLI로도 작업한다. 위 1~10번 규칙은 그대로 따르고, 아래가 다르다.
+- 오너가 `npm run dev`로 개발 서버 화면을 PC 브라우저에서 직접 볼 수 있다. 주소는 `http://localhost:5173/xinchao-quest/` (vite `base` 때문에 뒤에 `/xinchao-quest/`가 붙는다).
+- 손맛을 바꾸는 작업은 개발 서버를 켜 둔 채로 고치고, push 전에 오너에게 PC에서 확인할 체크리스트를 먼저 알려준다. 폰 확인은 배포 후 그대로 한다.
+- 태그는 오너가 화면에서 확인한 뒤에 붙인다.
+- 셸은 PowerShell과 Git Bash 둘 다 있다. 경로·명령어는 Windows 기준으로 쓴다 (예: `C:\dev\claudecode\xinchao-quest`).
+- 저장소 주인 계정은 `sumokmax-proj`다. PC에 다른 GitHub 계정이 로그인되어 있으면 push가 403으로 막힌다. 그때는 오너에게 알리고 기다린다.
+
 **외부 공개 후에는 브랜치 + PR 방식으로 되돌린다.** 그때부터는 새 브랜치에서 작업하고, `.github/pull_request_template.md` 양식으로 PR을 올리며(확인 체크리스트, 수치 변경 표, 패키지 추가 이유 포함), 실패한 상태로 PR을 올리지 않는다.
 
 ## PR 설명 양식 (외부 공개 후, 또는 push가 막혀 PR을 만들 때)

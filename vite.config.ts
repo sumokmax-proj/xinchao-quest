@@ -1,5 +1,5 @@
 import { defineConfig } from 'vitest/config';
-import pkg from './package.json';
+import pkg from './package.json' with { type: 'json' };
 
 // GitHub Pages 주소가 https://<계정>.github.io/xinchao-quest/ 이므로 base를 저장소 이름에 맞춘다.
 export default defineConfig({

@@ -216,6 +216,7 @@ export class Game {
       case 'wait':
         return false;
       case 'ignore':
+      case 'still':
         return true;
       case 'wall':
         p.wallBump();

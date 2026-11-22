@@ -6,6 +6,7 @@ export type BumpDecision<E> =
   | { kind: 'wait' } // 고블린이 있지만 공격 쿨다운 중 → 입력을 기억해 두고 기다림
   | { kind: 'ignore' } // 빈사(퀴즈 중) 고블린 → 아무 일도 안 함
   | { kind: 'wall' } // 나무·바위 → 툭 부딪힘
+  | { kind: 'still' } // 방금 부딪혀서(쿨다운 중) 또 나무·바위 쪽 → 방향만 바꾸고 소리 없음
   | { kind: 'move'; to: Cell }; // 빈 칸 → 이동
 
 /**
@@ -27,7 +28,8 @@ export function decideBump<E extends { dazed: boolean }>(
     if (!attackReady) return { kind: 'wait' };
     return { kind: 'attack', target: enemy };
   }
-  if (grid.isBlocked(to.c, to.r)) return { kind: 'wall' };
+  // 꾹 누르고 있어도 쿨다운(0.18초)이 끝나야 다시 "툭"
+  if (grid.isBlocked(to.c, to.r)) return attackReady ? { kind: 'wall' } : { kind: 'still' };
   return { kind: 'move', to };
 }
 

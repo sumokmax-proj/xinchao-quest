@@ -28,6 +28,12 @@ describe('범프 공격', () => {
   it('나무 쪽은 벽 부딪힘', () => {
     expect(decideBump({ c: 1, r: 1 }, 'up', grid, at, true).kind).toBe('wall');
   });
+  it('부딪힌 직후(쿨다운 중) 또 나무 쪽이면 소리 없이 가만히', () => {
+    expect(decideBump({ c: 1, r: 1 }, 'up', grid, at, false).kind).toBe('still');
+  });
+  it('쿨다운 중이어도 빈 칸으로는 이동', () => {
+    expect(decideBump({ c: 1, r: 2 }, 'right', grid, at, false).kind).toBe('move');
+  });
 });
 
 describe('데미지', () => {

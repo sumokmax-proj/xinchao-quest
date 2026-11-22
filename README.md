@@ -38,4 +38,5 @@ npm run build      # 배포용 빌드 (dist/)
 npm run preview    # 빌드 결과 미리보기
 npm run typecheck  # 타입 검사
 npm test           # 단위 테스트
+npm run playtest   # 자동 플레이 점검 (봇이 끝까지 플레이, 결과는 playtest-output/)
 ```

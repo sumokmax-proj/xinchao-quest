@@ -1,0 +1,5 @@
+[
+  { "label": "고블린 3마리", "enemies": ["goblin", "goblin", "goblin"] },
+  { "label": "고블린 4마리", "enemies": ["goblin", "goblin", "goblin", "goblin"] },
+  { "label": "대장 고블린 등장", "enemies": ["goblin", "goblin", "boss"] }
+]

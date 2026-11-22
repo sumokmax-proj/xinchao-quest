@@ -83,6 +83,30 @@ tests/               순수 로직 단위 테스트 (vitest)
 - 셸은 PowerShell과 Git Bash 둘 다 있다. 경로·명령어는 Windows 기준으로 쓴다 (예: `C:\dev\claudecode\xinchao-quest`).
 - 저장소 주인 계정은 `sumokmax-proj`다. 이 PC에는 `sumok-max` 계정도 로그인되어 있어서, 그냥 push하면 `sumok-max`로 시도해 403으로 막힌다. 그래서 이 저장소에서만 `sumokmax-proj`를 쓰도록 설정해 두었다: `git config --local credential.https://github.com.username sumokmax-proj`. 새로 clone했거나 403이 다시 나오면 이 명령을 실행하고 push한다 (로그인 창이 뜨면 오너가 `sumokmax-proj`로 로그인).
 
+### 자율 개발 모드 (오너가 "자율 개발 시작"이라고 하면, 주로 로컬 CLI)
+오너가 자리를 비운 동안 Claude가 스스로 점검 → 기획 → 개발 → 테스트를 반복한다. (2026-11-22 결정, decisions-log #19)
+- **목표와 순서:** `docs/completion-roadmap.md`. 위에서부터 끝나지 않은 마일스톤을 한다.
+- **점검 기준:** `docs/self-review-rubric.md`. 근거는 `npm run playtest` 리포트·스크린샷·테스트처럼 실제로 확인한 것만.
+- **기록:** `docs/dev-journal.md`. 시작할 때 마지막 항목부터 읽고, 사이클이 끝날 때마다 한 항목씩 쓴다.
+
+한 사이클:
+1. `git pull` → 일지 마지막 항목 읽기
+2. 점검: `npm run playtest -- --runs 3`, 스크린샷 직접 보기, 점검표 채점
+3. 기획: 로드맵의 다음 항목과 점수가 가장 낮은 항목 중에서, 커밋 몇 개로 끝낼 수 있는 크기로 하나 고르기
+4. 개발 + 순수 로직 단위 테스트. 기능이 바뀌면 `debugSnapshot()`과 자동 플레이 봇도 함께 고치기
+5. `npm run build`, `npm run typecheck`, `npm test`, `npm run playtest` 모두 통과 → 커밋·push
+6. 일지 쓰고 push. 마일스톤이 끝났으면 태그(`v0.4` 등) 붙여 push
+7. 다음 사이클로
+
+자율 모드에서 다른 점:
+- **오너에게 묻지 않고 진행한다.** 위 10번(계획 확인)은 생략. 오너 판단이 필요한 것은 일지의 "오너 확인 필요"에 적고 계속한다.
+- **게임 핵심 규칙과 손맛 기준값도 바꿀 수 있다.** 점검 근거가 있을 때만. 바꾸면 decisions-log에 결정을 추가하고(이전 → 이후, 근거), 이 문서의 해당 문장도 고치고, 일지에 적는다. 단 "보상은 학습 행동에만, 과금으로 강해지는 구조 없음"(결정 #15)은 오너 확인 없이 바꾸지 않는다.
+- **베트남어:** 새로 만든 단어·문장은 `"status": "draft"`를 붙여 넣고 일지에 목록을 남긴다. 오너 검수 전에도 게임에는 써도 된다.
+- **에셋:** CC0(또는 출처 표기만 요구하는 무료) 에셋을 자유롭게 받아 `public/models/`(소리는 `public/audio/`)에 둔다. 출처·라이선스는 `public/models/CREDITS.md`에. 라이선스가 불분명하면 쓰지 않는다. 모바일 로딩을 생각해 용량을 관리한다.
+- **사용량:** 사이클을 작게 잡고, 사이클마다 커밋·일지·push까지 끝낸다. 사용량 한도로 언제 멈춰도 다음 세션이 일지에서 이어받을 수 있게.
+- **멈출 때:** 로드맵이 끝났거나, 같은 문제로 3사이클 연속 진전이 없으면 일지에 이유를 적고 멈춘다.
+- **하지 않을 것:** `main` 말고 다른 브랜치에 push, force push, 저장소 설정 변경, 비밀 정보 커밋.
+
 **외부 공개 후에는 브랜치 + PR 방식으로 되돌린다.** 그때부터는 새 브랜치에서 작업하고, `.github/pull_request_template.md` 양식으로 PR을 올리며(확인 체크리스트, 수치 변경 표, 패키지 추가 이유 포함), 실패한 상태로 PR을 올리지 않는다.
 
 ## PR 설명 양식 (외부 공개 후, 또는 push가 막혀 PR을 만들 때)
@@ -94,3 +118,4 @@ tests/               순수 로직 단위 테스트 (vitest)
 ## 명령어 (1단계에서 만들 것)
 - `npm run dev` 개발 서버 · `npm run build` 빌드 · `npm run preview` 빌드 확인
 - `npm run typecheck` 타입 검사 · `npm test` 단위 테스트
+- `npm run playtest` 자동 플레이 점검 (봇이 끝까지 플레이, 리포트·스크린샷은 `playtest-output/`)

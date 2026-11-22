@@ -6,7 +6,7 @@ import { decideBump, faceAngle } from '../combat/BumpAttack';
 import { isCorrect, makeQuestion, resolveQuiz, updateWrongNote, type Question, type Word } from '../combat/QuizSystem';
 import { applyDamage, gainExp, rollDamage } from '../combat/rules';
 import { sfx, setSoundEnabled, unlockAudio } from '../audio/Sfx';
-import { hasVietnameseVoice, initVoice, setVoiceEnabled, speak } from '../audio/Voice';
+import { initVoice, setVoiceEnabled, speak } from '../audio/Voice';
 import { Goblin } from '../entities/Goblin';
 import { Player } from '../entities/Player';
 import { makeHero } from '../render/models';
@@ -139,7 +139,7 @@ export class Game {
 
   private updateStartNote(): void {
     const wc = Object.keys(this.save.wrong).length;
-    setStartNote((wc ? `지난번에 틀린 단어 ${wc}개가 더 자주 나와요. ` : '') + (hasVietnameseVoice() ? '정답 발음을 베트남어 음성으로 들려줘요.' : ''));
+    setStartNote(wc ? `지난번에 틀린 단어 ${wc}개가 더 자주 나와요.` : '');
   }
 
   /* ---------- 입력 ---------- */

@@ -52,7 +52,8 @@ export function makeHero(): HeroModel {
     new THREE.RingGeometry(0.45, 0.78, 18, 1, Math.PI * 0.1, Math.PI * 0.8),
     new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false }),
   );
-  arc.rotation.x = -Math.PI / 2;
+  // +90°로 눕혀야 궤적이 캐릭터 앞(공격 방향)에 생긴다. -90°면 등 뒤에 생김 (프로토타입에서 넘어온 버그)
+  arc.rotation.x = Math.PI / 2;
   arc.position.y = 0.5;
   g.add(arc);
   g.traverse((o) => {

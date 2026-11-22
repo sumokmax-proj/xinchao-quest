@@ -72,7 +72,7 @@ tests/               순수 로직 단위 테스트 (vitest)
 - 손맛을 바꾸는 작업은 개발 서버를 켜 둔 채로 고치고, push 전에 오너에게 PC에서 확인할 체크리스트를 먼저 알려준다. 폰 확인은 배포 후 그대로 한다.
 - 태그는 오너가 화면에서 확인한 뒤에 붙인다.
 - 셸은 PowerShell과 Git Bash 둘 다 있다. 경로·명령어는 Windows 기준으로 쓴다 (예: `C:\dev\claudecode\xinchao-quest`).
-- 저장소 주인 계정은 `sumokmax-proj`다. PC에 다른 GitHub 계정이 로그인되어 있으면 push가 403으로 막힌다. 그때는 오너에게 알리고 기다린다.
+- 저장소 주인 계정은 `sumokmax-proj`다. 이 PC에는 `sumok-max` 계정도 로그인되어 있어서, 그냥 push하면 `sumok-max`로 시도해 403으로 막힌다. 그래서 이 저장소에서만 `sumokmax-proj`를 쓰도록 설정해 두었다: `git config --local credential.https://github.com.username sumokmax-proj`. 새로 clone했거나 403이 다시 나오면 이 명령을 실행하고 push한다 (로그인 창이 뜨면 오너가 `sumokmax-proj`로 로그인).
 
 **외부 공개 후에는 브랜치 + PR 방식으로 되돌린다.** 그때부터는 새 브랜치에서 작업하고, `.github/pull_request_template.md` 양식으로 PR을 올리며(확인 체크리스트, 수치 변경 표, 패키지 추가 이유 포함), 실패한 상태로 PR을 올리지 않는다.
 

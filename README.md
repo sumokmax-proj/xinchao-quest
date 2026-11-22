@@ -22,3 +22,20 @@
 | [prototype/quiz-2d.html](prototype/quiz-2d.html) | 초기 버전. 2D 턴제 퀴즈 전투 (보관용) |
 
 브라우저에서 파일을 바로 열면 플레이할 수 있다.
+
+## 플레이 링크
+| 버전 | 링크 |
+| --- | --- |
+| 최신 (`main`) | https://sumokmax-proj.github.io/xinchao-quest/ |
+
+`main`에 push되면 GitHub Actions가 자동으로 빌드해서 위 주소에 배포한다 (2~3분). 시작 화면 부제에 버전(v0.1 등)이 보인다.
+
+## 개발 명령어
+```bash
+npm install        # 처음 한 번
+npm run dev        # 개발 서버
+npm run build      # 배포용 빌드 (dist/)
+npm run preview    # 빌드 결과 미리보기
+npm run typecheck  # 타입 검사
+npm test           # 단위 테스트
+```

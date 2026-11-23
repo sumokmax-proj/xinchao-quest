@@ -182,9 +182,10 @@ export function buildMap(scene: THREE.Scene, grid: Grid, theme: Theme): THREE.Gr
         table.position.y = 0.21;
         g.add(table);
         const awn = new THREE.Mesh(boxG, awningM[Math.floor(rng() * awningM.length)]);
-        awn.scale.set(1.02, 0.06, 0.9);
-        awn.position.set(0, 0.95, 0.05);
-        awn.rotation.x = 0.18;
+        // 천막은 뒤쪽 절반만 (위에서 봐도 앞의 과일 좌판이 보이게)
+        awn.scale.set(1.0, 0.05, 0.42);
+        awn.position.set(0, 1.0, -0.24);
+        awn.rotation.x = -0.3;
         g.add(awn);
         for (const px of [-0.42, 0.42]) {
           const pole = new THREE.Mesh(trunkG, woodM);

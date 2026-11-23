@@ -264,6 +264,12 @@ async function playStage(page, rng, shot, flags) {
     minHp = Math.min(minHp, s.player.hp);
     if (s.result) break;
     if (await skipCut(page, s, shot, flags)) continue;
+    const tele = s.goblins.find((g) => g.telegraph.length > 1);
+    if (tele && !flags.teleShots.has(tele.kind)) {
+      flags.teleShots.add(tele.kind);
+      await page.waitForTimeout(350);
+      await shot('telegraph-' + tele.kind);
+    }
     if (s.quiz && !flags.quizShot) {
       await shot('first-quiz');
       flags.quizShot = true;
@@ -365,7 +371,7 @@ async function playOnce(context, url, run) {
     return { run, rows: [{ result: 'webgl-error' }], errors, shots };
   }
   const rng = seeded(1234 + run);
-  const flags = { quizShot: false, toneShot: false, stageShots: new Set(), cutShots: new Set(), shopShots: new Set() };
+  const flags = { quizShot: false, toneShot: false, stageShots: new Set(), cutShots: new Set(), shopShots: new Set(), teleShots: new Set() };
   await page.click('#btnStart');
   await page.waitForTimeout(600);
   // 1스테이지를 깬 저장이면 마을에서 시작 → 성문으로 나가 열린 마지막 스테이지로

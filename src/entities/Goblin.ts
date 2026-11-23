@@ -47,6 +47,7 @@ export class Goblin {
   private knockX = 0;
   private knockZ = 0;
   private lungeT = 1;
+  private squashT = 0; // 맞았을 때 찌그러짐
   private deathT = 0;
   private spawnT = 0;
   private face: number | undefined;
@@ -94,6 +95,7 @@ export class Goblin {
   /** 맞았을 때: 하얗게 번쩍, 맞은 방향으로 살짝 밀림 */
   takeHit(dir: Step): void {
     this.flashT = CONFIG.feel.hitFlash;
+    this.squashT = 0.18;
     this.knockX = dir.dc * CONFIG.feel.knockback;
     this.knockZ = dir.dr * CONFIG.feel.knockback;
   }
@@ -137,14 +139,14 @@ export class Goblin {
   update(dt: number, ctx: GoblinContext): void {
     const grp = this.model.group;
     const baseScale = this.stats.scale;
-    if (this.spawnT < 1) {
-      this.spawnT = Math.min(1, this.spawnT + dt * 3);
-      grp.scale.setScalar(baseScale * easeOut(this.spawnT));
-    }
+    if (this.spawnT < 1) this.spawnT = Math.min(1, this.spawnT + dt * 3);
     if (this.state === 'dead') {
-      this.deathT += dt * 2.6;
-      grp.scale.setScalar(Math.max(0.001, baseScale * (1 - this.deathT)));
-      grp.rotation.y += dt * 12;
+      // 쓰러짐: 앞의 절반은 뒤로 벌러덩, 뒤의 절반은 작아지며 사라짐
+      this.deathT += dt * 1.8;
+      const fall = Math.min(1, this.deathT * 2);
+      grp.rotation.x = -easeOut(fall) * 1.4;
+      grp.position.y = Math.sin(fall * Math.PI) * 0.25;
+      grp.scale.setScalar(Math.max(0.001, baseScale * (this.deathT < 0.5 ? 1 : 1 - (this.deathT - 0.5) * 2)));
       if (this.deathT >= 1) {
         this.dispose();
         this.gone = true;
@@ -171,9 +173,21 @@ export class Goblin {
       lx = Math.sin(this.face) * s;
       lz = Math.cos(this.face) * s;
     }
+    // 공격 준비 동작: 빨간 예고가 차오르는 만큼 몸을 뒤로 젖히고 무기를 치켜든다 (예고와 같은 박자)
+    const windup = this.tele ? easeInOut(Math.min(1, telegraphProgress(this.tele.state))) : 0;
+    if (windup > 0 && this.face !== undefined) {
+      lx -= Math.sin(this.face) * 0.12 * windup;
+      lz -= Math.cos(this.face) * 0.12 * windup;
+    }
     grp.position.set(this.x + this.knockX + lx, this.moveT < 1 ? Math.sin(this.moveT * Math.PI) * 0.07 : 0, this.z + this.knockZ + lz);
     if (this.face !== undefined) grp.rotation.y = lerpAngle(grp.rotation.y, this.face, Math.min(1, dt * 14));
-    this.model.club.rotation.x = this.lungeT < 1 ? 0.5 + Math.sin(Math.min(1, this.lungeT) * Math.PI) * 1.6 : 0.5;
+    this.model.club.rotation.x = this.lungeT < 1 ? 0.5 + Math.sin(Math.min(1, this.lungeT) * Math.PI) * 1.6 : 0.5 - 1.3 * windup;
+    // 크기: 등장 → 숨쉬기 / 맞으면 찌그러짐 / 준비 동작 때 웅크림
+    if (this.squashT > 0) this.squashT -= dt;
+    const sq = Math.max(0, this.squashT) / 0.18;
+    const breathe = this.moveT >= 1 ? Math.sin(ctx.nowMs / 260 + this.c) * 0.025 : 0;
+    const s0 = baseScale * easeOut(this.spawnT);
+    grp.scale.set(s0 * (1 + 0.15 * sq), s0 * (1 - 0.22 * sq + breathe - 0.08 * windup), s0 * (1 + 0.15 * sq));
 
     if (this.state === 'dazed') {
       grp.rotation.z = Math.sin(ctx.nowMs / 120) * 0.14;
@@ -181,7 +195,8 @@ export class Goblin {
       this.model.stars.rotation.y += dt * 5;
       return;
     }
-    grp.rotation.z = 0;
+    // 걸을 때 뒤뚱뒤뚱
+    grp.rotation.z = this.moveT < 1 ? Math.sin(this.moveT * Math.PI * 2) * 0.12 : 0;
     this.model.stars.visible = false;
     if (!ctx.running) return;
 

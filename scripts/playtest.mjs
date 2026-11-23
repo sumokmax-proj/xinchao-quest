@@ -93,6 +93,9 @@ function decide(s, rng) {
     return side === 0 ? 'ArrowLeft' : 'ArrowRight';
   }
   if (!s.player.ready) return null;
+  // HP가 35% 아래면 음식 먹기 (E). 회복 음식이 있을 때만
+  const foodLeft = ['banhmi', 'pho', 'bunCha'].some((id) => (s.items?.[id] ?? 0) > 0);
+  if (foodLeft && s.player.hp / s.player.maxHp < 0.35) return 'e';
   const danger = new Set(s.goblins.flatMap((g) => g.telegraph.map((t) => k(t.c, t.r))));
   // 예고가 끝나면 기록을 지워서, 같은 칸의 다음 예고는 새로 정함
   for (const key of [...dodgeChoice.keys()]) if (!danger.has(key.split('#')[0])) dodgeChoice.delete(key);
@@ -285,6 +288,13 @@ async function playStage(page, rng, shot, flags) {
     await page.waitForTimeout(60);
   }
   await page.waitForTimeout(1500);
+  // 엔딩 컷처럼 결과 화면 전에 나오는 컷은 끝까지 넘긴다
+  for (let i = 0; i < 12; i++) {
+    const c = await snap(page);
+    if (!c.cutscene) break;
+    await skipCut(page, c, shot, flags);
+  }
+  await page.waitForTimeout(600);
   const final = await snap(page);
   if (!flags.stageShots.has(stage.index) || final.result !== 'win') await shot(`s${stage.index + 1}-end-${final.result ?? 'timeout'}`);
   flags.stageShots.add(stage.index);

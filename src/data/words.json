@@ -83,5 +83,9 @@
   {"vi": "mệt", "ko": "피곤하다", "topic": "일상", "status": "draft"},
   {"vi": "đói", "ko": "배고프다", "topic": "일상", "status": "draft"},
   {"vi": "thích", "ko": "좋아하다", "topic": "일상", "status": "draft"},
-  {"vi": "hiểu", "ko": "이해하다", "topic": "일상", "status": "draft"}
+  {"vi": "hiểu", "ko": "이해하다", "topic": "일상", "status": "draft"},
+  {"vi": "bánh mì", "ko": "반미 (바게트 샌드위치)", "topic": "음식", "status": "draft"},
+  {"vi": "phở bò", "ko": "소고기 쌀국수", "topic": "음식", "status": "draft"},
+  {"vi": "bún chả", "ko": "분짜 (숯불 돼지고기 쌀국수)", "topic": "음식", "status": "draft"},
+  {"vi": "cà phê trứng", "ko": "에그커피", "topic": "음식", "status": "draft"}
 ]

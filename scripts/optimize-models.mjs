@@ -3,11 +3,13 @@
  * - 쓰지 않는 애니메이션을 지우고, 안 쓰게 된 데이터를 정리해서 용량을 줄인다 (모바일 로딩)
  * - 결과는 public/models/<이름>.glb
  *
- * 사용: node scripts/optimize-models.mjs <원본 폴더>
+ * 사용: node scripts/optimize-models.mjs <캐릭터 원본 폴더> [지형 소품 원본 폴더]
+ * 지형 소품(KayKit Medieval Hexagon의 나무·바위)은 하나의 nature.glb로 합친다. 소품 이름 = 파일 이름
  * 원본은 git에 넣지 않는다 (용량). 출처·라이선스는 public/models/CREDITS.md
  */
 import { NodeIO } from '@gltf-transform/core';
-import { prune, dedup, resample, quantize } from '@gltf-transform/functions';
+import { prune, dedup, resample, quantize, mergeDocuments, unpartition } from '@gltf-transform/functions';
+import { existsSync } from 'node:fs';
 import { statSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -42,4 +44,28 @@ for (const job of JOBS) {
   await io.write(out, doc);
   const kept = doc.getRoot().listAnimations().map((a) => a.getName());
   console.log(`${job.out}: ${Math.round(statSync(out).size / 1024)}KB, 애니메이션 ${kept.join(', ')}`);
+}
+
+/* ---------- 지형 소품: 여러 .gltf를 nature.glb 하나로 ---------- */
+const PROPS_SRC = process.argv[3];
+const PROPS = ['tree_single_A', 'tree_single_B', 'rock_single_A', 'rock_single_B', 'rock_single_C'];
+if (PROPS_SRC && existsSync(PROPS_SRC)) {
+  const target = await io.read(join(PROPS_SRC, PROPS[0] + '.gltf'));
+  const name0 = target.getRoot().listScenes()[0];
+  target.getRoot().listNodes()[0].setName(PROPS[0]);
+  for (const name of PROPS.slice(1)) {
+    const src = await io.read(join(PROPS_SRC, name + '.gltf'));
+    src.getRoot().listNodes()[0].setName(name);
+    const map = mergeDocuments(target, src);
+    // 합친 문서의 장면 노드를 첫 장면으로 옮긴다
+    for (const scene of src.getRoot().listScenes()) {
+      const merged = map.get(scene);
+      for (const child of merged.listChildren()) name0.addChild(child);
+      merged.dispose();
+    }
+  }
+  await target.transform(unpartition(), dedup(), quantize(), prune());
+  const out = join('public', 'models', 'nature.glb');
+  await io.write(out, target);
+  console.log(`nature.glb: ${Math.round(statSync(out).size / 1024)}KB, 소품 ${name0.listChildren().map((n) => n.getName()).join(', ')}`);
 }

@@ -9,3 +9,10 @@
 
 - 원본: https://github.com/KayKit-Game-Assets/KayKit-Character-Pack-Adventures-1.0 (LICENSE.txt: "Creative Commons Zero, CC0", 출처 표기는 선택이지만 여기 남긴다)
 - 줄이는 방법: `node scripts/optimize-models.mjs <원본 폴더>` (원본 3.6MB → 게임용 0.3~0.46MB)
+
+| 파일 | 원본 | 만든 사람 | 라이선스 | 고친 것 |
+| --- | --- | --- | --- | --- |
+| nature.glb | KayKit Medieval Hexagon Pack 1.0 — decoration/nature: tree_single_A, tree_single_B, rock_single_A, rock_single_B, rock_single_C | Kay Lousberg | CC0 1.0 | 5개를 한 파일로 합치고 양자화 (30KB) |
+
+- 원본: https://github.com/KayKit-Game-Assets/KayKit-Medieval-Hexagon-Pack-1.0 (LICENSE.txt: CC0)
+- 합치는 방법: `node scripts/optimize-models.mjs <캐릭터 원본 폴더> <지형 소품 원본 폴더>`

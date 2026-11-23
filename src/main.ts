@@ -6,9 +6,10 @@ import { createRenderer } from './render/scene';
 import { el } from './ui/dom';
 import { Hud } from './ui/Hud';
 import { isOverlayOpen, showError } from './ui/Overlays';
+import { loadProps } from './render/props';
 import type * as THREE from 'three';
 
-function boot(): void {
+async function boot(): Promise<void> {
   const gameEl = el('game');
   el('version').textContent = 'v' + __APP_VERSION__;
 
@@ -21,6 +22,7 @@ function boot(): void {
   }
   gameEl.insertBefore(renderer.domElement, gameEl.firstChild);
 
+  await loadProps(); // 나무·바위 (30KB). 못 받아도 도형으로 그린다
   const game = new Game();
   // 개발 서버에서만: 자동 플레이 점검용으로 콘솔에서 게임 상태를 볼 수 있게 (배포 빌드에는 안 들어감)
   if (import.meta.env.DEV) (window as unknown as { __game: Game }).__game = game;
@@ -75,4 +77,4 @@ function boot(): void {
   requestAnimationFrame(frame);
 }
 
-boot();
+void boot();

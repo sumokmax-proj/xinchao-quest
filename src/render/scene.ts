@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { rand, defaultRng } from '../core/random';
 import type { Grid } from '../world/Grid';
 import type { Theme } from './themes';
+import { prop } from './props';
 
 /**
  * 프로토타입은 three 0.149를 썼다. 최신 three는 색·조명 계산 방식이 바뀌었으므로
@@ -143,6 +144,12 @@ export function buildMap(scene: THREE.Scene, grid: Grid, theme: Theme): THREE.Gr
           g.add(leaf);
         }
         add(g, x, z);
+      } else if (ch === 'T' && prop('tree_single_A')) {
+        const t = prop(rng() < 0.5 ? 'tree_single_A' : 'tree_single_B')!;
+        t.position.set(rand(rng, -0.08, 0.08), 0, rand(rng, -0.08, 0.08));
+        t.rotation.y = rand(rng, 0, 6);
+        t.scale.setScalar(rand(rng, 0.85, 1.1));
+        add(t, x, z);
       } else if (ch === 'T') {
         const g = new THREE.Group();
         const trunk = new THREE.Mesh(trunkG, trunkM);
@@ -156,6 +163,11 @@ export function buildMap(scene: THREE.Scene, grid: Grid, theme: Theme): THREE.Gr
         g.scale.setScalar(rand(rng, 0.85, 1.1));
         g.rotation.y = rand(rng, 0, 6);
         add(g, x, z);
+      } else if (ch === 'R' && prop('rock_single_A')) {
+        const names = ['rock_single_A', 'rock_single_B', 'rock_single_C'];
+        const t = prop(names[Math.floor(rng() * names.length)])!;
+        t.rotation.y = rand(rng, 0, 6);
+        add(t, x, z);
       } else if (ch === 'R') {
         const rock = new THREE.Mesh(rockG, rockM);
         rock.position.set(0, 0.2, 0);
@@ -251,6 +263,7 @@ export function disposeMap(scene: THREE.Scene, root: THREE.Group): void {
   const mats = new Set<THREE.Material>();
   root.traverse((o) => {
     const mesh = o as THREE.Mesh;
+    if (mesh.userData.shared) return; // 소품 원본과 같이 쓰는 것
     if (mesh.geometry) geos.add(mesh.geometry);
     const mm = mesh.material as THREE.Material | THREE.Material[] | undefined;
     if (Array.isArray(mm)) mm.forEach((x) => mats.add(x));

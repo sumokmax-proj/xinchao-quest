@@ -37,6 +37,7 @@ export class QuizBubble {
   setQuestion(q: Question, remaining: number, isBoss: boolean): void {
     this.kind.textContent = isBoss && remaining > 1 ? `${q.kindLabel} · 대장은 ${remaining}문제` : q.kindLabel;
     this.text.textContent = q.prompt;
+    this.root.classList.toggle('tone', q.kind === 'tone');
     this.text.lang = q.viToKo ? 'vi' : 'ko';
     q.options.forEach((opt, i) => {
       this.btnTexts[i].textContent = opt;

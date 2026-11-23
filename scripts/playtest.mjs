@@ -161,6 +161,7 @@ async function playOnce(context, url, run) {
   const t0 = Date.now();
   let lastWave = 0;
   let quizShot = false;
+  let toneShot = false;
   let minHp = Infinity;
   let s;
   while (Date.now() - t0 < TIMEOUT) {
@@ -170,6 +171,10 @@ async function playOnce(context, url, run) {
     if (s.quiz && !quizShot) {
       await shot('first-quiz');
       quizShot = true;
+    }
+    if (s.quiz?.kind === 'tone' && !toneShot && s.quiz.acceptsInput) {
+      await shot('tone-quiz');
+      toneShot = true;
     }
     if (s.wave.index !== lastWave) {
       lastWave = s.wave.index;

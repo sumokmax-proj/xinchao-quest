@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import words from '../src/data/words.json';
-import { isCorrect, makeQuestion, resolveQuiz, updateWrongNote, type Word } from '../src/combat/QuizSystem';
+import { isCorrect, makeQuestion, resolveQuiz, toneBase, toneSiblings, updateWrongNote, type Word } from '../src/combat/QuizSystem';
 import { seq } from './helpers';
 
 const W: Word[] = [
@@ -44,6 +44,60 @@ describe('문제 만들기', () => {
       expect(w.ko.trim()).not.toBe('');
     });
     expect(new Set(words.map((w) => w.vi)).size).toBe(words.length);
+  });
+  it('words.json: 뜻(한국어)도 겹치지 않음 (겹치면 2지선다 보기가 같아질 수 있음)', () => {
+    expect(new Set(words.map((w) => w.ko)).size).toBe(words.length);
+  });
+  it('words.json: 단어 50개 이상', () => {
+    expect(words.length).toBeGreaterThanOrEqual(50);
+  });
+});
+
+describe('성조 구별 문제', () => {
+  const T: Word[] = [
+    { vi: 'bạn', ko: '친구' },
+    { vi: 'bán', ko: '팔다' },
+    { vi: 'bàn', ko: '테이블' },
+    { vi: 'nhà', ko: '집' },
+  ];
+  it('성조·모음 부호를 떼면 같은 글자', () => {
+    expect(toneBase('bạn')).toBe('ban');
+    expect(toneBase('mưa')).toBe('mua');
+    expect(toneBase('chợ')).toBe(toneBase('chờ'));
+    expect(toneBase('đi')).toBe('di');
+    expect(toneBase('Bánh Mì')).toBe('banh mi');
+  });
+  it('짝 찾기: 자기 자신은 빼고, 부호만 다른 단어만', () => {
+    expect(toneSiblings(T, T[0]).map((w) => w.vi)).toEqual(['bán', 'bàn']);
+    expect(toneSiblings(T, T[3])).toEqual([]);
+  });
+  it('짝이 있고 확률에 걸리면 성조 문제: 한국어 뜻을 보고 성조만 다른 두 단어 중 고르기', () => {
+    // 단어 0번(bạn), 성조 확률 0.1(<0.4 → 성조 문제), 짝 0번(bán), 섞기 0.9(그대로)
+    const q = makeQuestion(T, {}, seq(0, 0.1, 0, 0.9));
+    expect(q.kind).toBe('tone');
+    expect(q.prompt).toBe('친구');
+    expect(q.answer).toBe('bạn');
+    expect(q.options).toContain('bán');
+    expect(q.options).toContain('bạn');
+  });
+  it('확률에 안 걸리면 보통 문제', () => {
+    const q = makeQuestion(T, {}, seq(0, 0.9, 0.5, 0.3, 0.9));
+    expect(q.kind).toBe('normal');
+  });
+  it('짝이 없는 단어는 언제나 보통 문제', () => {
+    for (let i = 0; i < 50; i++) expect(makeQuestion(W, {}, Math.random).kind).toBe('normal');
+  });
+  it('words.json에 성조 짝이 5쌍 이상', () => {
+    const bases = new Map<string, number>();
+    words.forEach((w) => bases.set(toneBase(w.vi), (bases.get(toneBase(w.vi)) ?? 0) + 1));
+    expect([...bases.values()].filter((n) => n >= 2).length).toBeGreaterThanOrEqual(5);
+  });
+  it('실제 단어로 많이 만들어도 정답은 보기에 있고 두 보기는 다름', () => {
+    for (let i = 0; i < 500; i++) {
+      const q = makeQuestion(words, {}, Math.random);
+      expect(q.options).toContain(q.answer);
+      expect(q.options[0]).not.toBe(q.options[1]);
+    }
   });
 });
 

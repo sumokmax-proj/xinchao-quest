@@ -6,10 +6,15 @@ export interface Word {
   vi: string;
   ko: string;
   topic?: string;
+  status?: string; // "draft": Claude가 넣은 뒤 오너 검수 전
 }
+
+/** normal: 뜻 ↔ 베트남어 / tone: 성조만 다른 단어 중에서 뜻에 맞는 것 고르기 */
+export type QuestionKind = 'normal' | 'tone';
 
 export interface Question {
   word: Word;
+  kind: QuestionKind;
   /** true: 베트남어를 보고 뜻 고르기 / false: 한국어를 보고 베트남어 고르기 */
   viToKo: boolean;
   prompt: string;
@@ -22,8 +27,37 @@ export interface Question {
 /** 오답노트: 베트남어 단어 → 점수. 틀리면 1, 맞힐 때마다 +1, 3이 되면 빠진다 */
 export type WrongNote = Record<string, number>;
 
-/** 2지선다 문제 만들기. 40% 확률로 오답노트 단어를 먼저 낸다 */
-export function makeQuestion(words: readonly Word[], note: WrongNote, rng: Rng, reviewChance: number = CONFIG.quiz.reviewChance): Question {
+/**
+ * 성조·모음 부호를 뗀 기본 글자. bạn·bán·bàn → "ban", mua·mưa → "mua", chợ·chờ → "cho".
+ * 이 값이 같은 단어끼리는 "소리가 비슷해서 헷갈리는 짝"이다.
+ */
+export function toneBase(vi: string): string {
+  return vi
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'D')
+    .toLowerCase()
+    .trim();
+}
+
+/** word와 기본 글자가 같은 다른 단어들 (성조 구별 문제의 오답 보기 후보) */
+export function toneSiblings(words: readonly Word[], word: Word): Word[] {
+  const base = toneBase(word.vi);
+  return words.filter((w) => w !== word && w.vi !== word.vi && toneBase(w.vi) === base);
+}
+
+/**
+ * 2지선다 문제 만들기. 40% 확률로 오답노트 단어를 먼저 낸다.
+ * 고른 단어에 성조만 다른 짝이 있으면 toneChance 확률로 성조 구별 문제를 낸다.
+ */
+export function makeQuestion(
+  words: readonly Word[],
+  note: WrongNote,
+  rng: Rng,
+  reviewChance: number = CONFIG.quiz.reviewChance,
+  toneChance: number = CONFIG.quiz.toneChance,
+): Question {
   if (words.length < 2) throw new Error('퀴즈에는 단어가 2개 이상 필요');
   const wrongKeys = Object.keys(note);
   let word: Word | undefined;
@@ -32,6 +66,12 @@ export function makeQuestion(words: readonly Word[], note: WrongNote, rng: Rng, 
     word = words.find((w) => w.vi === key);
   }
   if (!word) word = pick(rng, words);
+  const siblings = toneSiblings(words, word);
+  if (siblings.length && rng() < toneChance) {
+    const sib = pick(rng, siblings);
+    const [a, b] = shuffle(rng, [word.vi, sib.vi]);
+    return { word, kind: 'tone', viToKo: false, prompt: word.ko, kindLabel: '성조 주의 · 베트남어로?', options: [a, b], answer: word.vi };
+  }
   let other: Word;
   do other = pick(rng, words);
   while (other === word);
@@ -39,6 +79,7 @@ export function makeQuestion(words: readonly Word[], note: WrongNote, rng: Rng, 
   const [a, b] = shuffle(rng, viToKo ? [word.ko, other.ko] : [word.vi, other.vi]);
   return {
     word,
+    kind: 'normal',
     viToKo,
     prompt: viToKo ? word.vi : word.ko,
     kindLabel: viToKo ? '무슨 뜻?' : '베트남어로?',

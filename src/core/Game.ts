@@ -37,7 +37,7 @@ export interface DebugSnapshot {
   map: string[];
   player: { c: number; r: number; hp: number; maxHp: number; level: number; gold: number; ready: boolean };
   goblins: { c: number; r: number; hp: number; maxHp: number; state: string; boss: boolean; telegraph: Cell | null }[];
-  quiz: { answerSide: 0 | 1; acceptsInput: boolean; prompt: string } | null;
+  quiz: { answerSide: 0 | 1; acceptsInput: boolean; prompt: string; kind: string } | null;
   wave: { index: number; total: number };
   stats: { quiz: number; correct: number; kills: number; hurt: number; learned: number };
   /** 저장된 누적 진행 (판이 끝나도 남음) */
@@ -499,6 +499,7 @@ export class Game {
             answerSide: q.question.options.indexOf(q.question.answer) as 0 | 1,
             acceptsInput: !q.locked && performance.now() >= q.armedAt,
             prompt: q.question.prompt,
+            kind: q.question.kind,
           }
         : null,
       wave: { index: this.waves.index, total: WAVES.length },

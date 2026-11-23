@@ -75,6 +75,7 @@ export const CONFIG = {
     healRatio: 0.15, // 오답·시간 초과 시 최대 HP의 15%로 회복
     othersSpeed: 0.25, // 퀴즈 중 다른 고블린 속도 배율
     reviewChance: 0.4, // 오답노트 단어가 나올 확률
+    toneChance: 0.4, // 성조만 다른 짝이 있는 단어일 때 성조 구별 문제가 나올 확률
     reviewClearAt: 3, // 오답노트 점수가 이 값이 되면 오답노트에서 빠짐 (틀리면 1, 맞힐 때마다 +1)
     nextQuestionDelay: 0.5, // 대장: 정답 후 다음 문제까지
     finishDelay: 0.35, // 정답 후 처치 연출까지

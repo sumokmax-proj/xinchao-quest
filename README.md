@@ -12,6 +12,7 @@
 | [docs/game-design.md](docs/game-design.md) | 기획안 |
 | [docs/decisions-log.md](docs/decisions-log.md) | 지금까지의 결정, 남은 질문 |
 | [docs/reference-games-research.md](docs/reference-games-research.md) | Rumble Heroes · Guidus 레퍼런스 조사 |
+| [docs/story-concept.md](docs/story-concept.md) | 스토리·컨셉 구상 (나중에 개발) |
 | [docs/workflow.md](docs/workflow.md) | 브랜치·PR·리뷰 하는 법 (오너용 안내) |
 | [CLAUDE.md](CLAUDE.md) | Claude Code 작업 규칙 |
 

@@ -142,7 +142,7 @@ describe('적 배율', () => {
     const s = scaleEnemy(CONFIG.enemies.goblin, 1.25);
     expect(s.hp).toBe(38);
     expect(s.damage).toBe(10);
-    expect(s.exp).toBe(15);
+    expect(s.exp).toBe(13); // 12 × √1.25
     expect(s.gold).toBe(4000);
     expect(s.telegraph).toBe(CONFIG.enemies.goblin.telegraph);
   });

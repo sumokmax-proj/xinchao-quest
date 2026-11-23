@@ -67,13 +67,16 @@ export function pickPool<W>(pools: { main: W[]; older: W[] }, rng: Rng, olderCha
   return pools.main;
 }
 
-/** 적 능력치에 스테이지 배율 적용 (반올림) */
+/**
+ * 적 능력치에 스테이지 배율 적용 (반올림).
+ * EXP는 배율의 제곱근만큼만 늘린다 (그대로 곱하면 레벨이 배율보다 빨리 올라 뒤 스테이지가 오히려 쉬워짐)
+ */
 export function scaleEnemy<T extends { hp: number; damage: number; exp: number; gold: number }>(stats: T, power: number, damage: number = power): T {
   return {
     ...stats,
     hp: Math.round(stats.hp * power),
     damage: Math.round(stats.damage * damage),
-    exp: Math.round(stats.exp * power),
+    exp: Math.round(stats.exp * Math.sqrt(power)),
     gold: Math.round((stats.gold * power) / 500) * 500, // 동(đồng)은 500 단위로
   } as T;
 }

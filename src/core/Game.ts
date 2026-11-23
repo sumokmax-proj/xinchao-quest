@@ -2,6 +2,8 @@ import { CONFIG, type EnemyKind } from '../config';
 import stagesJson from '../data/stages.json';
 import wordsJson from '../data/words.json';
 import shopJson from '../data/shop.json';
+import villageJson from '../data/village.json';
+import storyJson from '../data/story.json';
 import { decideBump, faceAngle } from '../combat/BumpAttack';
 import { isCorrect, makeQuestion, resolveQuiz, updateWrongNote, type Question, type Word } from '../combat/QuizSystem';
 import { applyDamage, gainExp, recoverHp, rollDamage } from '../combat/rules';
@@ -22,6 +24,9 @@ import { hideEnd, hideStart, setStartNote, setStartProfile, showEnd, showStart, 
 import { StageSelect } from '../ui/StageSelect';
 import { WordBook } from '../ui/WordBook';
 import { ShopView } from '../ui/ShopView';
+import { Cartoon, type Panel } from '../ui/Cartoon';
+import { Dialog } from '../ui/Dialog';
+import { buildVillageProps, makeNpc } from '../render/village';
 import { QuizBubble } from '../ui/QuizBubble';
 import { banner, toast } from '../ui/Toasts';
 import { CameraRig } from '../world/CameraRig';
@@ -33,12 +38,16 @@ import { dexProgress, heroStatsFor, recordAnswer } from './Progress';
 import { loadSave, persist, type SaveData } from './Save';
 import { Timers } from './Timers';
 import { WaveProgress } from './Waves';
+import { activeNpcs, builtSet, nextBuilding, pickVillageQuestion, questionOptions, touchAt, type Npc, type VillageData } from './Village';
 import { buy, gearEffects, guardedDamage, pickFood, useItem, type GearEffects, type ShopItem } from './Shop';
 import { isUnlocked, lastUnlocked, pickPool, recordClear, scaleEnemy, stageWords, type StageData } from './Stages';
 
 const STAGES = stagesJson as StageData[];
 const WORDS = wordsJson as Word[];
 const SHOP = shopJson as ShopItem[];
+const VILLAGE = villageJson as VillageData;
+const STORY = storyJson as Record<string, Panel[]>;
+const VILLAGE_MAP = '__village';
 
 /** debugSnapshot()이 돌려주는 형식 */
 export interface DebugSnapshot {
@@ -53,6 +62,11 @@ export interface DebugSnapshot {
   items: Record<string, number>;
   gear: string[];
   ending: boolean;
+  mode: 'field' | 'village';
+  cutscene: boolean;
+  dialog: { open: boolean; asking: boolean; answer: 0 | 1 | null };
+  npcs: { id: string; c: number; r: number; role: string }[];
+  overlay: string | null;
   stats: { quiz: number; correct: number; kills: number; hurt: number; learned: number };
   /** 저장된 누적 진행 (판이 끝나도 남음) */
   profile: { level: number; gold: number; kills: number; correct: number; answered: number; runs: number; clears: number; collected: number };
@@ -92,6 +106,11 @@ export class Game {
   private atkBuffed = false; // 분짜 공격력 버프는 판마다 한 번
   private stageQuizTime = 0; // 에그커피: 이번 판 퀴즈 +초
   private mode: 'field' | 'village' = 'field';
+  private readonly cartoon = new Cartoon();
+  private readonly dialog = new Dialog();
+  private npcs: { npc: Npc; group: THREE.Group; label: HTMLDivElement }[] = [];
+  private askedThisVisit = new Set<string>(); // 이번 방문에 질문을 한 NPC
+  private talkAnswer: 0 | 1 | null = null; // 마을 사람 질문의 정답 쪽 (자동 플레이 점검용)
   private readonly select = new StageSelect((i) => this.play(i));
   private save: SaveData = loadSave();
   private goblins: Goblin[] = [];
@@ -111,12 +130,40 @@ export class Game {
     this.stageIndex = lastUnlocked(STAGES, this.save.stages);
     this.loadStage(this.stageIndex);
     this.player = new Player(this.grid, hero);
+    if (this.seen('village')) this.loadVillage();
     this.bubble = new QuizBubble((side) => this.answer(side));
     setSoundEnabled(this.save.sound);
     setVoiceEnabled(this.save.sound);
     initVoice(() => this.updateStartNote());
     this.updateStartNote();
-    this.reset();
+    if (this.mode === 'field') this.reset();
+    else this.placeInVillage();
+  }
+
+  private seen(id: string): boolean {
+    return this.save.seen.includes(id);
+  }
+
+  private markSeen(id: string): void {
+    if (!this.seen(id)) this.save.seen = [...this.save.seen, id];
+    persist(this.save);
+  }
+
+  /** 스토리 컷: 처음 한 번만. 보는 동안 게임은 멈춘다 */
+  private story(id: string, then: () => void): void {
+    if (this.seen(id) || !STORY[id]) {
+      then();
+      return;
+    }
+    const wasRunning = this.running;
+    this.running = false;
+    this.held = [];
+    this.queued = null;
+    this.cartoon.play(STORY[id], () => {
+      this.markSeen(id);
+      this.running = wasRunning;
+      then();
+    });
   }
 
   get settings(): Readonly<SaveData> {
@@ -134,6 +181,8 @@ export class Game {
     this.stageIndex = index;
     const st = this.stage;
     this.pools = stageWords(WORDS, STAGES, index);
+    this.mode = 'field';
+    this.clearNpcs();
     if (st.map === this.mapName) return;
     if (this.mapRoot) disposeMap(this.scene, this.mapRoot);
     this.map = getMap(st.map);
@@ -173,25 +222,203 @@ export class Game {
   /** 시작 화면의 "모험 시작": 처음이면 바로 1스테이지, 깬 스테이지가 있으면 스테이지 목록 */
   start(): void {
     unlockAudio();
-    if (lastUnlocked(STAGES, this.save.stages) === 0 && !this.save.stages[STAGES[0].id]) this.play(0);
-    else this.openSelect();
+    if (!this.save.stages[STAGES[0].id]) this.play(0);
+    else this.enterVillage();
   }
 
   openSelect(): void {
     this.select.open(STAGES, this.save.stages, this.save.dex, WORDS);
   }
 
-  /** 결과 화면의 큰 버튼: 이겼고 다음 스테이지가 있으면 다음, 아니면 같은 스테이지 다시 */
+  /** 결과 화면의 큰 버튼: 처음 1스테이지를 깼으면 마을로, 이겼고 다음 스테이지가 있으면 다음, 아니면 같은 스테이지 다시 */
   retry(): void {
+    if (this.result === 'win' && (!this.seen('village') || this.ending)) {
+      this.enterVillage();
+      return;
+    }
     const next = this.result === 'win' && isUnlocked(STAGES, this.save.stages, this.stageIndex + 1) ? this.stageIndex + 1 : this.stageIndex;
     this.play(next);
   }
 
-  /** 결과 화면 → 시작 화면 */
+  /** 결과 화면 → 마을 (아직 마을을 모르면 시작 화면) */
   toMenu(): void {
     hideEnd();
-    this.updateStartNote();
-    showStart();
+    if (this.save.stages[STAGES[0].id]) this.enterVillage();
+    else {
+      this.updateStartNote();
+      showStart();
+    }
+  }
+
+  /* ---------- 마을 ---------- */
+
+  private clearNpcs(): void {
+    this.npcs.forEach((n) => n.label.remove());
+    this.npcs = [];
+    this.dialog.reset();
+  }
+
+  /** 마을 맵·건물·NPC를 만든다 (복구 상태는 지금 도감 수 기준) */
+  private loadVillage(): void {
+    this.mode = 'village';
+    this.clearNpcs();
+    if (this.mapRoot) disposeMap(this.scene, this.mapRoot);
+    this.map = VILLAGE;
+    this.mapName = VILLAGE_MAP;
+    this.grid = new Grid(VILLAGE.rows);
+    const theme = getTheme(VILLAGE.theme);
+    applyTheme(this.scene, theme);
+    this.mapRoot = buildMap(this.scene, this.grid, theme);
+    const collected = dexProgress(this.save.dex, WORDS).collected;
+    this.mapRoot.add(buildVillageProps(this.grid, VILLAGE, builtSet(VILLAGE.buildings, collected)));
+    for (const npc of activeNpcs(VILLAGE, collected)) {
+      const m = makeNpc(npc.look);
+      m.group.position.set(this.grid.worldX(npc.at.c), 0, this.grid.worldZ(npc.at.r));
+      this.mapRoot.add(m.group);
+      const label = document.createElement('div');
+      label.className = 'npcname';
+      label.textContent = npc.name;
+      el('labels').appendChild(label);
+      this.npcs.push({ npc, group: m.group, label });
+    }
+    if (this.player) this.player.grid = this.grid;
+  }
+
+  private placeInVillage(): void {
+    const pr = this.save.profile;
+    const base = heroStatsFor(pr.level, pr.exp);
+    this.fx = gearEffects(SHOP, this.save.inventory);
+    this.player.reset(VILLAGE.start, { ...base, attack: base.attack + this.fx.attack, gold: pr.gold });
+    this.cam.snapTo(this.player.x, this.player.z);
+    this.goblins.forEach((g) => g.dispose());
+    this.goblins = [];
+    this.timers.clear();
+    this.endQuiz();
+    this.result = null;
+    this.held = [];
+    this.queued = null;
+    Hud.setPlace('씬짜오 마을');
+    this.updateHud();
+  }
+
+  /** 마을로 돌아오기: 새로 지어진 건물이 있으면 알려준다. 처음 오면 도착 컷 */
+  enterVillage(): void {
+    unlockAudio();
+    hideStart();
+    hideEnd();
+    this.select.close();
+    this.loadVillage();
+    this.placeInVillage();
+    this.askedThisVisit.clear();
+    this.running = true;
+    const collected = dexProgress(this.save.dex, WORDS).collected;
+    const built = VILLAGE.buildings.filter((b) => collected >= b.need);
+    const fresh = this.seen('village') ? built.slice(this.save.villageBuilt) : [];
+    this.save.villageBuilt = built.length;
+    persist(this.save);
+    this.story('village', () => {
+      if (fresh.length) {
+        banner(fresh.map((b) => b.name).join(' · '), '다시 지어졌어요!');
+        sfx.level();
+      } else banner('씬짜오 마을', `모은 단어 ${collected}개`);
+    });
+  }
+
+  /** 마을에서 부딪힌 곳. true면 처리함 (움직이지 않음) */
+  private villageTouch(dir: Dir): boolean {
+    const d = DIRS[dir];
+    const c = this.player.c + d.dc;
+    const r = this.player.r + d.dr;
+    const t = touchAt(VILLAGE, this.npcs.map((n) => n.npc), c, r);
+    if (t.kind === 'none') return false;
+    this.player.face = faceAngle(d.dc, d.dr);
+    this.held = [];
+    this.queued = null;
+    if (t.kind === 'gate') {
+      sfx.bump();
+      this.openSelect();
+    } else if (t.kind === 'npc') this.talk(t.npc);
+    else if (t.kind === 'building') {
+      const collected = dexProgress(this.save.dex, WORDS).collected;
+      if (collected < t.building.need) {
+        this.dialog.say(t.building.name, '…무너져 있다.', `단어 ${t.building.need}개를 모으면 다시 지어져요 (지금 ${collected}개)`);
+      } else {
+        this.player.wallBump();
+        sfx.bump();
+      }
+    }
+    return true;
+  }
+
+  private talk(npc: Npc): void {
+    sfx.bump();
+    const collected = dexProgress(this.save.dex, WORDS).collected;
+    switch (npc.role) {
+      case 'lord': {
+        const next = nextBuilding(VILLAGE.buildings, collected);
+        const stage = STAGES[lastUnlocked(STAGES, this.save.stages)];
+        const sub = next
+          ? `단어 ${next.need - collected}개를 더 모으면 ${next.name}이(가) 다시 지어질 것이오. 다음 목적지: ${stage.name}`
+          : `마을이 완전히 살아났소! 다음 목적지: ${stage.name}`;
+        this.dialog.say(npc.name, 'Chào dũng sĩ!', `용사여, 반갑소. ${sub}`);
+        this.askedThisVisit.add(npc.id);
+        break;
+      }
+      case 'food':
+        this.shop.open(SHOP.filter((x) => x.shop === 'food'), this.save.inventory, this.save.profile.gold, '반미 가게', 'Bánh mì nóng đây! · 따끈한 반미 있어요!');
+        break;
+      case 'gear':
+        this.shop.open(SHOP.filter((x) => x.shop === 'gear'), this.save.inventory, this.save.profile.gold, '대장간', 'Kiếm tốt đây! · 좋은 검 있어요!');
+        break;
+      case 'book':
+        this.openBook();
+        break;
+      case 'question':
+        this.askVillager(npc);
+        break;
+    }
+    this.refreshNpcLabels();
+  }
+
+  /** 마을 사람 질문: 베트남 사람이 외국인에게 자주 묻는 말. ←/→로 대답 */
+  private askVillager(npc: Npc): void {
+    if (this.askedThisVisit.has(npc.id)) {
+      this.dialog.say(npc.name, 'Hẹn gặp lại!', '또 봐요!');
+      return;
+    }
+    const asked = new Set<string>();
+    const q = pickVillageQuestion(VILLAGE.questions, asked, this.rng);
+    const { options, answer } = questionOptions(q, this.rng);
+    this.talkAnswer = answer;
+    speak(q.q);
+    this.dialog.ask(npc.name, q.q, q.ko, options, (side) => {
+      this.askedThisVisit.add(npc.id);
+      this.talkAnswer = null;
+      this.dialog.mark(answer, side);
+      const ok = side === answer;
+      speak(q.right);
+      if (ok) {
+        sfx.good();
+        const gold = CONFIG.village.answerGold;
+        this.save.profile = { ...this.save.profile, gold: this.save.profile.gold + gold };
+        this.player.stats.gold = this.save.profile.gold;
+        persist(this.save);
+        this.updateHud();
+        setTimeout(() => this.dialog.say(npc.name, 'Giỏi quá!', `잘하네요! "${q.right}" = ${q.rightKo} · +${fmtDong(gold)}`), 700);
+      } else {
+        sfx.bad();
+        setTimeout(() => this.dialog.say(npc.name, q.right, `이렇게 대답하면 돼요: ${q.rightKo}`), 700);
+      }
+      this.refreshNpcLabels();
+    });
+  }
+
+  /** 아직 이야기할 게 있는 NPC 이름표에 "!" */
+  private refreshNpcLabels(): void {
+    for (const n of this.npcs) {
+      const fresh = (n.npc.role === 'question' || n.npc.role === 'lord') && !this.askedThisVisit.has(n.npc.id);
+      n.label.classList.toggle('new', fresh);
+    }
   }
 
   /** index번 스테이지를 처음부터 */
@@ -201,10 +428,20 @@ export class Game {
     hideStart();
     hideEnd();
     this.select.close();
+    this.shop.close();
     this.loadStage(index);
     this.reset();
     this.beginRun();
+    Hud.setPlace(null);
     banner(this.stage.name, '웨이브 1 · ' + this.stage.waves[0].label);
+    // 에그커피가 있으면 판을 시작하면서 한 잔
+    const coffee = SHOP.find((x) => x.stageQuizTime);
+    if (coffee && (this.save.inventory.items[coffee.id] ?? 0) > 0) {
+      this.save.inventory = useItem(coffee.id, this.save.inventory).inv;
+      this.stageQuizTime = coffee.stageQuizTime ?? 0;
+      persist(this.save);
+      this.timers.after(1.6, () => toast(`<b>${esc(coffee.vi)}</b> 한 잔! 이번 판 퀴즈 +${this.stageQuizTime}초`, 'level'));
+    }
   }
 
   private beginRun(): void {
@@ -249,7 +486,14 @@ export class Game {
       wrongWords: this.run.wrong,
       learnedWords: this.run.learned,
     };
-    showEnd(summary);
+    const show = () => {
+      showEnd(summary);
+      if (win && !this.seen('village')) el('btnRetry').textContent = '마을로 ▶';
+      if (this.ending) el('btnRetry').textContent = '마을로 돌아가기';
+      el('btnMenu').textContent = this.save.stages[STAGES[0].id] ? '마을' : '처음';
+    };
+    if (this.ending) this.story('ending', show);
+    else show();
   }
 
   /* ---------- 설정 ---------- */
@@ -330,6 +574,14 @@ export class Game {
   /* ---------- 입력 ---------- */
 
   press(dir: Dir): void {
+    if (this.cartoon.isOpen) {
+      this.cartoon.next();
+      return;
+    }
+    if (this.dialog.isOpen) {
+      this.dialog.key(dir);
+      return;
+    }
     if (this.quiz) {
       if (dir === 'left') this.answer(0);
       else if (dir === 'right') this.answer(1);
@@ -394,6 +646,7 @@ export class Game {
     const p = this.player;
     const d = DIRS[dir];
     p.face = faceAngle(d.dc, d.dr);
+    if (this.mode === 'village' && this.villageTouch(dir)) return true;
     const result = decideBump(p.cell, dir, this.grid, (c, r) => this.goblinAt(c, r), p.attackCooldown <= 0);
     switch (result.kind) {
       case 'attack':
@@ -624,7 +877,7 @@ export class Game {
     const p = this.player;
 
     p.tick(dt);
-    if (this.running && !this.quiz && p.ready && p.stats.hp > 0) {
+    if (this.running && !this.quiz && !this.dialog.isOpen && p.ready && p.stats.hp > 0) {
       const dir = this.queued ?? this.held[this.held.length - 1];
       if (dir && this.tryAct(dir)) this.queued = null;
     }
@@ -653,18 +906,25 @@ export class Game {
 
     p.animate(dt, nowMs);
 
-    if (this.running) {
+    if (this.running && this.mode === 'field') {
       const ev = this.waves.check(this.goblins.length);
       if (ev?.kind === 'next') {
         this.timers.after(CONFIG.wave.nextDelay, () => {
-          this.waves.advance();
-          this.spawnWave(ev.index, false);
+          const go = () => {
+            this.waves.advance();
+            this.spawnWave(ev.index, false);
+          };
+          const hasKing = this.stage.waves[ev.index].enemies.includes('king');
+          if (this.stageIndex === 0 && ev.index === 1) this.story('intro', go);
+          else if (hasKing) this.story('king', go);
+          else go();
         });
       } else if (ev?.kind === 'clear') {
         this.timers.after(CONFIG.wave.clearDelay, () => this.finish(true));
       }
     }
 
+    for (const n of this.npcs) n.group.position.y = Math.abs(Math.sin(nowMs / 400 + n.npc.at.c)) * 0.03;
     this.particles.update(dt);
     this.cam.update(dt, p);
   }
@@ -672,6 +932,12 @@ export class Game {
   /** HTML 라벨(HP 바, 퀴즈 말풍선)을 3D 위치에 맞춘다. 렌더 후에 호출 */
   updateLabels(screenW: number): void {
     const camera = this.cam.camera;
+    for (const n of this.npcs) {
+      const p = n.group.position;
+      const s = toScreen(camera, p.x, 1.45, p.z);
+      n.label.style.left = s.x + 'px';
+      n.label.style.top = s.y + 'px';
+    }
     for (const g of this.goblins) {
       const pos = g.model.group.position;
       const s = toScreen(camera, pos.x, 1.3 * g.stats.scale, pos.z);
@@ -729,6 +995,11 @@ export class Game {
         : null,
       wave: { index: this.waves.index, total: this.stage.waves.length },
       stage: { index: this.stageIndex, id: this.stage.id, total: STAGES.length, unlocked: lastUnlocked(STAGES, this.save.stages) },
+      mode: this.mode,
+      cutscene: this.cartoon.isOpen,
+      dialog: { open: this.dialog.isOpen, asking: this.dialog.asking, answer: this.talkAnswer },
+      npcs: this.npcs.map((n) => ({ id: n.npc.id, c: n.npc.at.c, r: n.npc.at.r, role: n.npc.role })),
+      overlay: ['shopOv', 'bookOv', 'stageOv', 'endOv', 'startOv'].find((id) => !el(id).hidden) ?? null,
       items: { ...this.save.inventory.items },
       gear: this.save.inventory.gear.slice(),
       ending: this.ending,

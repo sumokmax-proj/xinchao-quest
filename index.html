@@ -39,6 +39,23 @@
     </div>
   </header>
 
+  <div class="talk" id="talk" hidden>
+    <p class="tname" id="talkName"></p>
+    <p class="ttext" id="talkText" lang="vi"></p>
+    <p class="tsub" id="talkSub"></p>
+    <div class="qa" id="talkOpts" hidden>
+      <button type="button" id="talkL"><span class="arr">←</span><span id="talkLText" lang="vi"></span></button>
+      <button type="button" id="talkR"><span id="talkRText" lang="vi"></span><span class="arr">→</span></button>
+    </div>
+  </div>
+
+  <section class="cut" id="cutOv" hidden>
+    <div class="cutart" id="cutArt"></div>
+    <p class="cuttext" id="cutText"></p>
+    <p class="cutdots" id="cutDots"></p>
+    <button type="button" class="cutskip" id="btnCutSkip">건너뛰기 ▶▶</button>
+  </section>
+
   <div class="hint" id="hint">고블린 쪽으로 이동하면 자동으로 공격해요</div>
   <div class="toasts" id="toasts" aria-live="polite"></div>
   <div id="bannerHost"></div>
@@ -69,6 +86,7 @@
 
   <section class="overlay book" id="shopOv" hidden>
     <h2><span id="shopTitle">상점</span> <small class="shopgold" id="shopGold"></small></h2>
+    <p class="shopgreet" id="shopGreet" lang="vi"></p>
     <div class="booklist" id="shopList"></div>
     <button type="button" class="btn ghost" id="btnShopClose">닫기</button>
   </section>

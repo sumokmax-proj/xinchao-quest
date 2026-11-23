@@ -13,11 +13,13 @@ export interface SaveData {
   dex: Dex; // 단어 도감 (단어별 맞힘·틀림 기록)
   stages: StageRecords; // 스테이지별 클리어 기록 (해금 판단)
   inventory: Inventory; // 상점에서 산 소모품·장비
+  seen: string[]; // 이미 본 스토리 컷 (intro, village, king, ending)
+  villageBuilt: number; // 마지막으로 마을에서 본 복구된 건물 수 (새로 지어지면 알려주기용)
 }
 
 const KEY = 'xinchao-3d-v1';
 
-export const defaultSave = (): SaveData => ({ wrong: {}, sound: true, pixel: true, answeredQuiz: false, profile: freshProfile(), dex: {}, stages: {}, inventory: emptyInventory() });
+export const defaultSave = (): SaveData => ({ wrong: {}, sound: true, pixel: true, answeredQuiz: false, profile: freshProfile(), dex: {}, stages: {}, inventory: emptyInventory(), seen: [], villageBuilt: 0 });
 
 /** 저장된 글자(JSON)를 SaveData로. 내용이 깨져 있거나 예전 형식이어도 빠진 곳은 기본값으로 채운다 */
 export function parseSave(raw: string | null): SaveData {
@@ -34,6 +36,8 @@ export function parseSave(raw: string | null): SaveData {
       save.dex = sanitizeDex(parsed.dex);
       save.stages = sanitizeStageRecords(parsed.stages);
       save.inventory = sanitizeInventory(parsed.inventory);
+      if (Array.isArray(parsed.seen)) save.seen = parsed.seen.filter((x): x is string => typeof x === 'string');
+      if (typeof parsed.villageBuilt === 'number' && parsed.villageBuilt >= 0) save.villageBuilt = Math.floor(parsed.villageBuilt);
     }
   } catch {
     /* 깨진 JSON이면 기본값 */
@@ -60,5 +64,5 @@ export function persist(save: SaveData): void {
 
 /** 진행 초기화 (설정은 남긴다) */
 export function clearProgress(save: SaveData): SaveData {
-  return { ...save, wrong: {}, profile: freshProfile(), dex: {}, stages: {}, inventory: emptyInventory(), answeredQuiz: false };
+  return { ...save, wrong: {}, profile: freshProfile(), dex: {}, stages: {}, inventory: emptyInventory(), seen: [], villageBuilt: 0, answeredQuiz: false };
 }

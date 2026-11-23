@@ -179,6 +179,10 @@ export const CONFIG = {
     phaseBonus: 0.12, // 지역 보스 단계 퀴즈를 맞히면 최대 HP의 12% 추가 피해
   },
 
+  village: {
+    answerGold: 2000, // 마을 사람 질문에 맞게 대답하면 받는 골드
+  },
+
   wave: {
     nextDelay: 1.1, // 웨이브를 다 잡고 다음 웨이브까지
     clearDelay: 1.2, // 마지막 웨이브 후 클리어 화면까지

@@ -26,6 +26,11 @@ export const Hud = {
     el('itemCount').textContent = String(count);
     b.classList.toggle('urge', hpRatio < 0.35);
   },
+  /** 마을에서는 웨이브 대신 장소 이름 (null이면 웨이브 표시로 돌아감) */
+  setPlace(name: string | null): void {
+    if (name) el('waveChip').textContent = name;
+    el('btnItem').classList.toggle('away', !!name);
+  },
   setWave(index: number, total: number): void {
     el('waveChip').textContent = `웨이브 ${index + 1} / ${total}`;
   },

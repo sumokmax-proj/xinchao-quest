@@ -40,6 +40,17 @@ const meadow: Theme = {
 
 export const THEMES: Record<string, Theme> = {
   meadow,
+  /** 마을: 밝은 오후, 따뜻한 흙길 */
+  village: {
+    ...meadow,
+    sky: '#24402f',
+    outer: '#3a5a32',
+    ground: ['#8fb862', '#97c06a'],
+    edge: '#5f8a44',
+    hemiSky: 0xfff0d8,
+    sunColor: 0xfff0c8,
+    sun: 0.85,
+  },
   /** 대나무 숲: 밝은 연두, 키 큰 대나무 */
   bamboo: {
     ...meadow,

@@ -12,9 +12,10 @@ export class ShopView {
     el('btnShopClose').addEventListener('click', () => this.close());
   }
 
-  open(items: readonly ShopItem[], inv: Inventory, gold: number, title: string): void {
+  open(items: readonly ShopItem[], inv: Inventory, gold: number, title: string, greet = ''): void {
     this.items = items;
     el('shopTitle').textContent = title;
+    el('shopGreet').textContent = greet;
     el('shopOv').hidden = false;
     this.render(inv, gold);
   }

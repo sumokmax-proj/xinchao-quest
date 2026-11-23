@@ -59,7 +59,7 @@ const DIRS = [
 const k = (c, r) => c + ',' + r;
 
 function firstStep(s, from, goalTest, avoid) {
-  const blocked = new Set(s.goblins.map((g) => k(g.c, g.r)));
+  const blocked = new Set([...s.goblins.map((g) => k(g.c, g.r)), ...(s.npcs ?? []).map((n) => k(n.c, n.r))]);
   const seen = new Set([k(from.c, from.r)]);
   let layer = [];
   for (const d of DIRS) layer.push({ c: from.c + d.dc, r: from.r + d.dr, first: d });
@@ -129,6 +129,125 @@ async function launch() {
 
 const snap = (page) => page.evaluate(() => window.__game.debugSnapshot());
 
+/* ---------- 마을 ---------- */
+/** 대장간에서 살 순서 (살 수 있는 것만) */
+const GEAR_ORDER = ['sword1', 'armor1', 'hourglass', 'charm', 'sword2', 'armor2'];
+const FOOD_WANT = { banhmi: 3, pho: 1, bunCha: 1, caPheTrung: 1 };
+
+/** 카툰 컷이 떠 있으면 넘긴다. 넘겼으면 true */
+async function skipCut(page, s, shot, flags) {
+  if (!s.cutscene) return false;
+  const key = 'cut-' + (await page.textContent('#cutText')).slice(0, 12);
+  if (!flags.cutShots.has(key) && flags.cutShots.size < 12) {
+    flags.cutShots.add(key);
+    await page.waitForTimeout(400);
+    await shot('story');
+  }
+  await page.waitForTimeout(400);
+  await page.keyboard.press('ArrowRight');
+  await page.waitForTimeout(150);
+  return true;
+}
+
+async function shopBuy(page, ids, wants) {
+  for (const id of ids) {
+    for (let n = 0; n < (wants?.[id] ?? 1); n++) {
+      const sel = `#shopList .buy[data-id="${id}"]:not([disabled])`;
+      if (!(await page.locator(sel).count())) break;
+      await page.click(sel);
+      await page.waitForTimeout(120);
+    }
+  }
+}
+
+/**
+ * 마을에서 할 일: 반미 가게 → 대장간 → 마을 사람 한 명과 대화 → 성문 → 열린 마지막 스테이지.
+ * 결과 화면에서 "마을" 버튼을 누른 직후 부른다.
+ */
+async function villageRoutine(page, rng, shot, flags) {
+  const plan = ['food', 'gear', 'question', 'gate'];
+  const t0 = Date.now();
+  let step = 0;
+  while (Date.now() - t0 < 60000 && step < plan.length) {
+    const s = await snap(page);
+    if (await skipCut(page, s, shot, flags)) continue;
+    if (s.dialog.open) {
+      if (s.dialog.asking && s.dialog.answer !== null) {
+        if (!flags.talkShot) {
+          await shot('village-question');
+          flags.talkShot = true;
+        }
+        const side = rng() < WRONG_RATE ? 1 - s.dialog.answer : s.dialog.answer;
+        await page.waitForTimeout(300);
+        await page.keyboard.press(side === 0 ? 'ArrowLeft' : 'ArrowRight');
+        await page.waitForTimeout(900);
+      } else {
+        await page.waitForTimeout(300);
+        await page.keyboard.press('ArrowDown');
+        if (plan[step] === 'question') step++;
+      }
+      continue;
+    }
+    if (s.overlay === 'shopOv') {
+      if (!flags.shopShots.has(plan[step])) {
+        flags.shopShots.add(plan[step]);
+        await shot('shop-' + plan[step]);
+      }
+      if (plan[step] === 'food') await shopBuy(page, Object.keys(FOOD_WANT), FOOD_WANT);
+      else await shopBuy(page, GEAR_ORDER);
+      await page.click('#btnShopClose');
+      step++;
+      continue;
+    }
+    if (s.overlay === 'stageOv') {
+      if (!flags.selectShot) {
+        await shot('stage-select');
+        flags.selectShot = true;
+      }
+      const cards = page.locator('#stageList .stage:not(.locked)');
+      await cards.nth((await cards.count()) - 1).click();
+      await page.waitForTimeout(1200);
+      return true;
+    }
+    if (s.overlay) {
+      await page.waitForTimeout(200);
+      continue;
+    }
+    if (s.mode !== 'village') {
+      await page.waitForTimeout(200);
+      continue;
+    }
+    if (!flags.villageShot) {
+      await page.waitForTimeout(1200);
+      await shot('village');
+      flags.villageShot = true;
+    }
+    // 목표 칸: NPC 또는 성문(G)
+    let target = null;
+    if (plan[step] === 'gate') {
+      s.map.forEach((row, r) => [...row].forEach((ch, c) => { if (ch === 'G' && !target && s.map[r - 1]?.[c] === '.') target = { c, r }; }));
+    } else {
+      const want = plan[step];
+      const list = s.npcs.filter((n) => n.role === want);
+      target = list.length ? list[Math.floor(rng() * list.length)] : null;
+      if (!target) { step++; continue; }
+    }
+    if (!s.player.ready) { await page.waitForTimeout(60); continue; }
+    const p = s.player;
+    if (Math.abs(target.c - p.c) + Math.abs(target.r - p.r) === 1) {
+      await page.keyboard.press(DIRS.find((d) => p.c + d.dc === target.c && p.r + d.dr === target.r).key);
+      await page.waitForTimeout(400);
+      continue;
+    }
+    const d = firstStep(s, p, (n) => Math.abs(target.c - n.c) + Math.abs(target.r - n.r) === 1, new Set());
+    if (!d) { step++; continue; }
+    await page.keyboard.press(d.key);
+    await page.waitForTimeout(60);
+  }
+  return false;
+}
+
+
 /** 스테이지 한 번 플레이. 결과 화면이 뜰 때까지 (또는 시간 초과) */
 async function playStage(page, rng, shot, flags) {
   const t0 = Date.now();
@@ -141,6 +260,7 @@ async function playStage(page, rng, shot, flags) {
     s = await snap(page);
     minHp = Math.min(minHp, s.player.hp);
     if (s.result) break;
+    if (await skipCut(page, s, shot, flags)) continue;
     if (s.quiz && !flags.quizShot) {
       await shot('first-quiz');
       flags.quizShot = true;
@@ -229,15 +349,13 @@ async function playOnce(context, url, run) {
     await page.close();
     return { run, rows: [{ result: 'webgl-error' }], errors, shots };
   }
+  const rng = seeded(1234 + run);
+  const flags = { quizShot: false, toneShot: false, stageShots: new Set(), cutShots: new Set(), shopShots: new Set() };
   await page.click('#btnStart');
-  await page.waitForTimeout(300);
-  if (await page.isVisible('#stageOv')) {
-    await shot('stage-select');
-    const cards = page.locator('#stageList .stage:not(.locked)');
-    const count = await cards.count();
-    await cards.nth(KEEP_SAVE && run > 1 ? count - 1 : Math.min(START_STAGE, count) - 1).click();
-  }
-  await page.waitForTimeout(1200);
+  await page.waitForTimeout(600);
+  // 1스테이지를 깬 저장이면 마을에서 시작 → 성문으로 나가 열린 마지막 스테이지로
+  if ((await snap(page)).mode === 'village') await villageRoutine(page, rng, shot, flags);
+  await page.waitForTimeout(600);
 
   // 프레임 측정 (2초)
   const fps = await page.evaluate(
@@ -251,8 +369,6 @@ async function playOnce(context, url, run) {
     } catch { return '?'; }
   });
 
-  const rng = seeded(1234 + run);
-  const flags = { quizShot: false, toneShot: false, stageShots: new Set() };
   const rows = [];
   const tStart = Date.now();
   for (let n = 0; n < (CAMPAIGN ? MAX_PLAYS : 1); n++) {
@@ -261,8 +377,14 @@ async function playOnce(context, url, run) {
     console.log(`  스테이지 ${row.stage}: ${label[row.result] ?? row.result}, ${row.seconds}초, 웨이브 ${row.waveReached}, Lv ${row.level}, 맞음 ${row.hurt}회`);
     if (!CAMPAIGN || row.result === 'timeout') break;
     if (row.result === 'win' && row.stage === STAGES.length) break;
-    await page.click('#btnRetry');
-    await page.waitForTimeout(1200);
+    // 이기든 지든 마을에 들러 장을 보고 성문으로 나간다 (처음 1스테이지를 깨면 큰 버튼이 "마을로")
+    if ((await page.textContent('#btnRetry')).includes('마을')) await page.click('#btnRetry');
+    else await page.click('#btnMenu');
+    await page.waitForTimeout(600);
+    if (!(await villageRoutine(page, rng, shot, flags))) {
+      console.log('  마을에서 성문으로 나가지 못함');
+      break;
+    }
   }
   const totalSeconds = Math.round((Date.now() - tStart) / 1000);
   if (await page.isVisible('#btnBook2')) {
@@ -274,11 +396,12 @@ async function playOnce(context, url, run) {
     await shot('book-wrong');
     await page.click('#btnBookClose');
   }
-  if (CAMPAIGN && (await page.isVisible('#btnMenu'))) {
-    await page.click('#btnMenu');
-    await page.click('#btnStart');
-    await page.waitForTimeout(300);
-    await shot('stage-select-after');
+  if (CAMPAIGN && (await page.isVisible('#btnRetry'))) {
+    await page.click('#btnRetry');
+    await page.waitForTimeout(1500);
+    for (let i = 0; i < 20 && (await snap(page)).cutscene; i++) await skipCut(page, await snap(page), shot, flags);
+    await page.waitForTimeout(1500);
+    await shot('village-after');
   }
   const final = await snap(page);
   await page.close();

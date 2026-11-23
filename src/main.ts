@@ -11,7 +11,6 @@ import type * as THREE from 'three';
 
 async function boot(): Promise<void> {
   const gameEl = el('game');
-  el('version').textContent = 'v' + __APP_VERSION__;
 
   let renderer: THREE.WebGLRenderer;
   try {
@@ -40,6 +39,16 @@ async function boot(): Promise<void> {
     Hud.setToggles(pixel, game.settings.sound);
   }
   window.addEventListener('resize', resize);
+  // 폰을 가로로 돌리면 (화면 높이가 낮은 가로) "세로로 돌려 주세요"를 띄우고 게임을 멈춘다
+  const landscape = window.matchMedia('(orientation: landscape) and (max-height: 520px)');
+  const onRotate = () => {
+    if (landscape.matches) {
+      game.paused = true;
+      game.releaseAll();
+    } else if (el('setOv').hidden) game.paused = false;
+  };
+  landscape.addEventListener('change', onRotate);
+  onRotate();
 
   bindInput(renderer.domElement, el('dpad'), {
     press: (d) => game.press(d),

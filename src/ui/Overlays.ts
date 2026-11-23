@@ -49,6 +49,8 @@ export function showStart(): void {
 export function setStartProfile(p: { level: number; gold: number; runs: number }, collected: number, total: number, wrongCount: number, goldText: string): void {
   const box = el('startProfile');
   box.hidden = p.runs === 0;
+  // 처음 하는 사람에게는 단어장을 보여주지 않는다 (한 판이라도 해 본 뒤에 의미가 생김)
+  el('btnBook').hidden = p.runs === 0;
   box.innerHTML = `<b>Lv ${p.level}</b> · <span class="g"></span>`;
   (box.querySelector('.g') as HTMLElement).textContent = goldText;
   el('bookCount').textContent = `${collected} / ${total}`;

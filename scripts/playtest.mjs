@@ -355,6 +355,11 @@ async function playOnce(context, url, run) {
     await page.evaluate(() => window.dispatchEvent(new Event('resize')));
     await page.waitForTimeout(500);
     await shot('gallery-smooth');
+    await page.setViewportSize({ width: 844, height: 390 });
+    await page.waitForTimeout(500);
+    await shot('landscape');
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.waitForTimeout(300);
     for (const row of [7, 14]) {
       await page.evaluate((r) => window.__game.debugVillage(r), row);
       await page.waitForTimeout(2500);

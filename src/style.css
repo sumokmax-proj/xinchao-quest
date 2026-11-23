@@ -45,6 +45,13 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
 .chip{background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:5px 10px;font-size:12px;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
 .chip.gold{color:var(--gold)}
 .tools{display:flex;gap:6px}
+.tool.gear{width:34px;height:34px;padding:0;display:grid;place-items:center}
+.tool.gear::before{content:"";width:20px;height:20px;background:var(--ink);-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M19.4 13a7.6 7.6 0 0 0 0-2l2-1.6-2-3.4-2.4 1a7.4 7.4 0 0 0-1.7-1L15 3.5h-4l-.4 2.5a7.4 7.4 0 0 0-1.7 1l-2.4-1-2 3.4 2 1.6a7.6 7.6 0 0 0 0 2l-2 1.6 2 3.4 2.4-1a7.4 7.4 0 0 0 1.7 1l.4 2.5h4l.4-2.5a7.4 7.4 0 0 0 1.7-1l2.4 1 2-3.4zM13 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z' transform='translate(-1 0)'/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M19.4 13a7.6 7.6 0 0 0 0-2l2-1.6-2-3.4-2.4 1a7.4 7.4 0 0 0-1.7-1L15 3.5h-4l-.4 2.5a7.4 7.4 0 0 0-1.7 1l-2.4-1-2 3.4 2 1.6a7.6 7.6 0 0 0 0 2l-2 1.6 2 3.4 2.4-1a7.4 7.4 0 0 0 1.7 1l.4 2.5h4l.4-2.5a7.4 7.4 0 0 0 1.7-1l2.4 1 2-3.4zM13 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z' transform='translate(-1 0)'/%3E%3C/svg%3E") center/contain no-repeat}
+#setOv{z-index:12}
+.setrow{display:flex;justify-content:space-between;align-items:center;padding:0 18px}
+.setrow b{color:var(--gold)}
+.setrow.danger{color:#f2a497}
+.setrow.danger.armed{background:var(--red);color:#fff}
 .tool{background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:5px 9px;font-size:11px}
 .hint{position:absolute;z-index:5;left:50%;bottom:calc(214px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--panel);border-radius:999px;padding:6px 12px;font-size:12px;color:var(--muted);white-space:nowrap;transition:opacity .4s}
 .banner{position:absolute;z-index:6;left:0;right:0;top:34%;text-align:center;font-family:var(--font-display);font-size:34px;color:var(--gold);-webkit-text-stroke:5px #2a1a00;paint-order:stroke fill;text-shadow:0 3px 0 #000;pointer-events:none;animation:pop 1.6s ease-out forwards}

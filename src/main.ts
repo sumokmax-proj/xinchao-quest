@@ -54,6 +54,33 @@ async function boot(): Promise<void> {
   el('btnBook2').addEventListener('click', () => game.openBook());
   el('btnMenu').addEventListener('click', () => game.toMenu());
   el('btnItem').addEventListener('click', () => game.eat());
+  // 설정: 톱니바퀴 → 소리·도트·진행 초기화. 열려 있는 동안 게임은 멈춘다
+  el('setVersion').textContent = 'v' + __APP_VERSION__;
+  let resetArmed = 0;
+  const closeSettings = () => {
+    el('setOv').hidden = true;
+    game.paused = false;
+    resetArmed = 0;
+    el('btnReset').classList.remove('armed');
+    el('resetNote').textContent = '';
+  };
+  el('btnSettings').addEventListener('click', () => {
+    el('setOv').hidden = false;
+    game.paused = true;
+    game.releaseAll();
+  });
+  el('btnSetClose').addEventListener('click', closeSettings);
+  el('btnReset').addEventListener('click', () => {
+    // 실수로 지우지 않게 3초 안에 한 번 더 눌러야 지워진다 (브라우저 확인창은 쓰지 않음)
+    if (performance.now() - resetArmed < 3000) {
+      game.resetProgress();
+      location.reload();
+      return;
+    }
+    resetArmed = performance.now();
+    el('btnReset').classList.add('armed');
+    el('resetNote').textContent = '레벨·골드·도감·스테이지가 모두 지워져요. 한 번 더 누르면 지워져요.';
+  });
   el('btnPixel').addEventListener('click', () => {
     game.togglePixel();
     resize();

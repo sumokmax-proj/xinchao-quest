@@ -378,6 +378,12 @@ async function playOnce(context, url, run) {
   if ((await snap(page)).mode === 'village') await villageRoutine(page, rng, shot, flags);
   await page.waitForTimeout(600);
 
+  if (run === 1 && (await page.isVisible('#btnSettings'))) {
+    await page.click('#btnSettings');
+    await page.waitForTimeout(300);
+    await shot('settings');
+    await page.click('#btnSetClose');
+  }
   // 프레임 측정 (2초)
   const fps = await page.evaluate(
     () => new Promise((res) => { let n = 0; const t0 = performance.now(); const f = () => { n++; if (performance.now() - t0 < 2000) requestAnimationFrame(f); else res(Math.round(n / 2)); }; requestAnimationFrame(f); }),

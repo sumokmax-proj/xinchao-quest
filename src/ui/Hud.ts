@@ -35,7 +35,7 @@ export const Hud = {
     el('waveChip').textContent = `웨이브 ${index + 1} / ${total}`;
   },
   setToggles(pixel: boolean, sound: boolean): void {
-    el('btnPixel').textContent = pixel ? '도트 켬' : '도트 끔';
-    el('btnSound').textContent = sound ? '소리 켬' : '소리 끔';
+    el('btnPixel').innerHTML = `도트 모드 <b>${pixel ? '켬' : '끔'}</b>`;
+    el('btnSound').innerHTML = `소리 <b>${sound ? '켬' : '끔'}</b>`;
   },
 };

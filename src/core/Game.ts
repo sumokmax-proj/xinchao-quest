@@ -36,7 +36,7 @@ import { getMap } from '../world/maps';
 import type * as THREE from 'three';
 import { defaultRng } from './random';
 import { dexProgress, heroStatsFor, recordAnswer } from './Progress';
-import { loadSave, persist, type SaveData } from './Save';
+import { clearProgress, loadSave, persist, type SaveData } from './Save';
 import { Timers } from './Timers';
 import { WaveProgress } from './Waves';
 import { activeNpcs, builtSet, nextBuilding, pickVillageQuestion, questionOptions, touchAt, type Npc, type VillageData } from './Village';
@@ -909,7 +909,17 @@ export class Game {
 
   /* ---------- 매 프레임 ---------- */
 
+  /** 설정 창이 떠 있으면 게임을 멈춘다 */
+  paused = false;
+
+  /** 진행 초기화 (설정은 남김). 부른 쪽에서 페이지를 새로 연다 */
+  resetProgress(): void {
+    this.save = clearProgress(this.save);
+    persist(this.save);
+  }
+
   update(dt: number, nowMs: number): void {
+    if (this.paused) return;
     this.timers.update(dt);
     const p = this.player;
 

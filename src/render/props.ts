@@ -47,7 +47,10 @@ export async function loadProps(timeoutMs = 4000): Promise<void> {
       m.material = lam;
     });
     const box = new THREE.Box3().setFromObject(t);
-    const k = h / (box.max.y - box.min.y || 1);
+    // 높이에 맞추되, 납작한 바위가 옆으로 커지지 않게 가로 폭도 한 칸(나무 1.0, 바위 0.75) 안으로
+    const foot = name.startsWith('tree') ? 1.0 : 0.75;
+    const wide = Math.max(box.max.x - box.min.x, box.max.z - box.min.z) || 1;
+    const k = Math.min(h / (box.max.y - box.min.y || 1), foot / wide);
     const wrap = new THREE.Group();
     t.scale.setScalar(k);
     t.position.set(-((box.min.x + box.max.x) / 2) * k, -box.min.y * k, -((box.min.z + box.max.z) / 2) * k);

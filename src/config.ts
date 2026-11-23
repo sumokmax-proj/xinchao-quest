@@ -205,6 +205,10 @@ export const CONFIG = {
     shakeKill: 0.18,
     shakeBossKill: 0.35,
     gameOverDelay: 0.8,
+    hitStop: 0.045, // 때린 순간 화면이 아주 잠깐 멈춤 (몬스터·동작만. 플레이어 이동·공격 간격은 그대로)
+    hitStopCrit: 0.08,
+    hitStopKill: 0.1,
+    hitSparks: 6, // 때릴 때 튀는 불꽃 수 (크리티컬은 2배)
   },
 
   render: {

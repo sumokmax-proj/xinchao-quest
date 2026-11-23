@@ -126,6 +126,7 @@ export class Game {
   private run = { quiz: 0, correct: 0, wrong: new Map<string, string>(), learned: new Map<string, string>(), kills: 0, start: 0 };
   private result: 'win' | 'lose' | null = null;
   private hurtCount = 0;
+  private hitStop = 0; // 남은 히트스톱 시간
 
   constructor() {
     this.particles = new Particles(this.scene);
@@ -710,6 +711,8 @@ export class Game {
     floatText(this.cam.camera, g.x, 1.3, g.z, (crit ? '크리티컬 ' : '') + damage, crit ? 'crit' : '');
     if (crit) sfx.crit();
     else sfx.hit();
+    this.hitStop = Math.max(this.hitStop, crit ? CONFIG.feel.hitStopCrit : CONFIG.feel.hitStop);
+    this.particles.spark(g.x, g.z, crit ? CONFIG.feel.hitSparks * 2 : CONFIG.feel.hitSparks, crit ? '#ffdf6b' : '#ffffff');
     this.cam.shake(crit ? CONFIG.feel.shakeCrit : CONFIG.feel.shakeHit);
     if (g.hp <= 0) this.startQuiz(g, false);
     else if (g.stats.phases.length) {
@@ -883,6 +886,7 @@ export class Game {
     this.run.kills++;
     this.particles.burst(g.x, g.z, g.boss ? 26 : 14, MONSTER_COLOR[g.kind]);
     this.cam.shake(g.boss ? CONFIG.feel.shakeBossKill : CONFIG.feel.shakeKill);
+    this.hitStop = Math.max(this.hitStop, CONFIG.feel.hitStopKill);
     const { exp, gold } = g.stats;
     const p = this.player;
     p.stats.gold += gold;
@@ -915,6 +919,9 @@ export class Game {
       if (dir && this.tryAct(dir)) this.queued = null;
     }
 
+    // 히트스톱: 때린 순간 몬스터·동작만 아주 잠깐 거의 멈춘다 (플레이어 이동·공격 간격 계산은 위에서 이미 끝남)
+    const vis = this.hitStop > 0 ? dt * 0.06 : dt;
+    if (this.hitStop > 0) this.hitStop -= dt;
     const ctx = {
       running: this.running,
       player: p.cell,
@@ -928,7 +935,7 @@ export class Game {
       const slow = this.quiz && this.quiz.goblin !== g ? CONFIG.quiz.othersSpeed : 1;
       ctx.playerHp = p.stats.hp;
       ctx.running = this.running;
-      g.update(dt * slow, ctx);
+      g.update(vis * slow, ctx);
     }
     this.goblins = this.goblins.filter((g) => !g.gone);
 
@@ -937,7 +944,7 @@ export class Game {
       if (this.quiz.timeLeft <= 0) this.resolve(null);
     }
 
-    p.animate(dt, nowMs);
+    p.animate(vis, nowMs);
 
     if (this.running && this.mode === 'field') {
       const ev = this.waves.check(this.goblins.length);

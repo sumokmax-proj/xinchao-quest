@@ -29,6 +29,20 @@ export class Particles {
     }
   }
 
+  /** 때린 자리에서 튀는 작은 불꽃 (빛나는 재질, 짧게) */
+  spark(x: number, z: number, n: number, color: THREE.ColorRepresentation): void {
+    const m = new THREE.MeshBasicMaterial({ color });
+    for (let i = 0; i < n; i++) {
+      const mesh = new THREE.Mesh(particleGeo, m);
+      mesh.position.set(x, 0.6, z);
+      mesh.scale.setScalar(0.6);
+      this.scene.add(mesh);
+      const a = rand(defaultRng, 0, Math.PI * 2);
+      const sp = rand(defaultRng, 2.5, 4.5);
+      this.list.push({ mesh, vx: Math.cos(a) * sp, vy: rand(defaultRng, 1.5, 3.5), vz: Math.sin(a) * sp, life: rand(defaultRng, 0.18, 0.32) });
+    }
+  }
+
   update(dt: number): void {
     this.list = this.list.filter((p) => {
       p.life -= dt;

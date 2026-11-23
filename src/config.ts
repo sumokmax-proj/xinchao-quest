@@ -43,6 +43,7 @@ export const CONFIG = {
       pattern: 'single', // 공격 모양 (combat/Telegraph.ts)
       range: 1,
       name: '고블린',
+      phases: [], // 지역 보스만: HP가 이 비율 아래로 내려갈 때마다 퀴즈
     },
     boss: {
       hp: 70,
@@ -58,6 +59,7 @@ export const CONFIG = {
       pattern: 'single',
       range: 1,
       name: '대장 고블린',
+      phases: [],
     },
     /** 대나무 숲: 빠르고 약함. 예고가 짧다 */
     monkey: {
@@ -74,6 +76,7 @@ export const CONFIG = {
       pattern: 'single',
       range: 1,
       name: '원숭이',
+      phases: [],
     },
     /** 홍강 둑길: 느리고 단단함. 앞으로 2칸 들이받기 */
     buffalo: {
@@ -90,6 +93,7 @@ export const CONFIG = {
       pattern: 'line2',
       range: 1,
       name: '물소',
+      phases: [],
     },
     /** 시장 골목: 앞 칸과 좌우까지 물어뜯기 */
     dog: {
@@ -106,6 +110,7 @@ export const CONFIG = {
       pattern: 'wide',
       range: 1,
       name: '들개',
+      phases: [],
     },
     /** 논두렁: 떨어진 곳에서 일직선으로 물총 */
     frog: {
@@ -122,6 +127,7 @@ export const CONFIG = {
       pattern: 'ranged',
       range: 4,
       name: '개구리',
+      phases: [],
     },
     /** 고블린 요새의 지역 보스: 3칸 휘두르기와 주변 8칸 내려찍기를 번갈아 */
     king: {
@@ -138,6 +144,7 @@ export const CONFIG = {
       pattern: 'slam',
       range: 1,
       name: '고블린 왕',
+      phases: [2 / 3, 1 / 3],
     },
   },
 
@@ -169,6 +176,7 @@ export const CONFIG = {
     nextQuestionDelay: 0.5, // 대장: 정답 후 다음 문제까지
     finishDelay: 0.35, // 정답 후 처치 연출까지
     recoverDelay: 0.5, // 오답 후 고블린이 회복하기까지
+    phaseBonus: 0.12, // 지역 보스 단계 퀴즈를 맞히면 최대 HP의 12% 추가 피해
   },
 
   wave: {
@@ -208,6 +216,7 @@ export interface EnemyStats {
   pattern: AttackPattern;
   range: number;
   name: string;
+  phases: readonly number[];
   hp: number;
   damage: number;
   telegraph: number;

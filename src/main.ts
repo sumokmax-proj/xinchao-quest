@@ -43,6 +43,7 @@ function boot(): void {
     press: (d) => game.press(d),
     release: (d) => game.release(d),
     releaseAll: () => game.releaseAll(),
+    item: () => game.eat(),
     blocked: isOverlayOpen,
   });
   el('btnStart').addEventListener('click', () => game.start());
@@ -50,6 +51,7 @@ function boot(): void {
   el('btnBook').addEventListener('click', () => game.openBook());
   el('btnBook2').addEventListener('click', () => game.openBook());
   el('btnMenu').addEventListener('click', () => game.toMenu());
+  el('btnItem').addEventListener('click', () => game.eat());
   el('btnPixel').addEventListener('click', () => {
     game.togglePixel();
     resize();

@@ -5,6 +5,8 @@ export interface EndSummary {
   stageName: string;
   hasNext: boolean; // 이겼고 다음 스테이지가 있음 → 큰 버튼이 "다음 스테이지"
   isLast: boolean;
+  /** 마지막 스테이지를 깼을 때: 지금까지의 전체 기록 */
+  ending: { totalSeconds: number; collected: number; totalWords: number; accuracy: number; kills: number } | null;
   correct: number;
   total: number;
   kills: number;
@@ -36,7 +38,8 @@ function fillWords(id: string, words: Map<string, string>, empty: string): void 
   }
 }
 
-export const isOverlayOpen = (): boolean => !el('startOv').hidden || !el('endOv').hidden || !el('bookOv').hidden || !el('stageOv').hidden;
+export const isOverlayOpen = (): boolean =>
+  !el('startOv').hidden || !el('endOv').hidden || !el('bookOv').hidden || !el('stageOv').hidden || !el('shopOv').hidden;
 
 export function showStart(): void {
   el('startOv').hidden = false;
@@ -75,13 +78,26 @@ export function showEnd(s: EndSummary): void {
   el('endTitle').textContent = s.win ? '스테이지 클리어' : '쓰러졌어요';
   el('endSub').textContent = s.win ? `${s.stageName} 정화 완료` : `${s.stageName} · 틀린 단어는 다음 판에 더 자주 나와요`;
   el('btnRetry').textContent = s.hasNext ? '다음 스테이지 ▶' : '다시 하기';
+  el('endOv').classList.toggle('ending', !!s.ending);
+  if (s.ending) {
+    el('endTitle').textContent = '고블린 왕을 물리쳤어요!';
+    el('endSub').textContent = '마을 앞부터 요새까지, 베트남어로 길을 열었어요';
+  }
   const acc = s.total ? Math.round((s.correct / s.total) * 100) : 0;
-  const rows: [string, string][] = [
-    ['퀴즈 정답률', `${acc}% (${s.correct}/${s.total})`],
-    ['처치한 고블린', s.kills + '마리'],
-    ['레벨', 'Lv ' + s.level],
-    ['걸린 시간', Math.floor(s.seconds / 60) + '분 ' + (s.seconds % 60) + '초'],
-  ];
+  const time = (sec: number) => Math.floor(sec / 60) + '분 ' + (sec % 60) + '초';
+  const rows: [string, string][] = s.ending
+    ? [
+        ['모은 단어', `${s.ending.collected} / ${s.ending.totalWords}`],
+        ['전체 정답률', s.ending.accuracy + '%'],
+        ['물리친 몬스터', s.ending.kills + '마리'],
+        ['총 플레이 시간', time(s.ending.totalSeconds)],
+      ]
+    : [
+        ['퀴즈 정답률', `${acc}% (${s.correct}/${s.total})`],
+        ['처치한 몬스터', s.kills + '마리'],
+        ['레벨', 'Lv ' + s.level],
+        ['걸린 시간', time(s.seconds)],
+      ];
   const dl = el('endStats');
   dl.replaceChildren();
   for (const [k, v] of rows) {

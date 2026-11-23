@@ -1,0 +1,92 @@
+import { describe, expect, it } from 'vitest';
+import villageJson from '../src/data/village.json';
+import { activeNpcs, builtSet, nextBuilding, pickVillageQuestion, questionOptions, touchAt, type VillageData } from '../src/core/Village';
+import { Grid } from '../src/world/Grid';
+import { seq } from './helpers';
+
+const V = villageJson as VillageData;
+
+describe('village.json', () => {
+  it('맵: 직사각형, 시작 칸은 바닥, 성문이 있음', () => {
+    const g = new Grid(V.rows);
+    expect(g.isBlocked(V.start.c, V.start.r)).toBe(false);
+    expect(V.rows.join('')).toContain('G');
+  });
+  it('NPC는 모두 바닥 칸에 서 있고 자리가 겹치지 않음, 건물 id가 있음', () => {
+    const g = new Grid(V.rows);
+    const ids = new Set(V.buildings.map((b) => b.id));
+    const spots = new Set<string>();
+    for (const n of V.npcs) {
+      expect(g.isBlocked(n.at.c, n.at.r), n.id).toBe(false);
+      expect(ids.has(n.building), n.id).toBe(true);
+      spots.add(`${n.at.c},${n.at.r}`);
+    }
+    expect(spots.size).toBe(V.npcs.length);
+  });
+  it('NPC가 서 있어도 시작 칸에서 성문 앞까지 걸어갈 수 있음 (모든 바닥이 이어짐)', () => {
+    const g = new Grid(V.rows);
+    const npc = new Set(V.npcs.map((n) => `${n.at.c},${n.at.r}`));
+    const free = (c: number, r: number) => !g.isBlocked(c, r) && !npc.has(`${c},${r}`);
+    const seen = new Set([`${V.start.c},${V.start.r}`]);
+    const q = [V.start];
+    while (q.length) {
+      const { c, r } = q.shift()!;
+      for (const [dc, dr] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const k = `${c + dc},${r + dr}`;
+        if (!seen.has(k) && free(c + dc, r + dr)) {
+          seen.add(k);
+          q.push({ c: c + dc, r: r + dr });
+        }
+      }
+    }
+    let floors = 0;
+    V.rows.forEach((row, r) => [...row].forEach((ch, c) => ch === '.' && free(c, r) && floors++));
+    expect(seen.size).toBe(floors);
+  });
+  it('질문은 정답과 오답이 다름', () => {
+    V.questions.forEach((q) => expect(q.right).not.toBe(q.wrong));
+  });
+});
+
+describe('마을 재건', () => {
+  it('도감 0개: 성과 반미 가게만', () => {
+    expect([...builtSet(V.buildings, 0)].sort()).toEqual(['bakery', 'castle']);
+  });
+  it('단어를 모으면 건물이 늘어남', () => {
+    expect(builtSet(V.buildings, 100).size).toBe(V.buildings.length);
+    expect(builtSet(V.buildings, 8).has('smith')).toBe(true);
+  });
+  it('다음 복구 건물', () => {
+    expect(nextBuilding(V.buildings, 0)?.id).toBe('smith');
+    expect(nextBuilding(V.buildings, 999)).toBeNull();
+  });
+  it('건물이 없으면 그 NPC도 없음', () => {
+    const ids = activeNpcs(V, 0).map((n) => n.id);
+    expect(ids).toContain('lord');
+    expect(ids).toContain('baker');
+    expect(ids).toContain('guard');
+    expect(ids).not.toContain('smith');
+  });
+});
+
+describe('부딪힌 곳', () => {
+  it('NPC, 성문, 건물, 빈 곳', () => {
+    const npcs = activeNpcs(V, 999);
+    expect(touchAt(V, npcs, 5, 3)).toMatchObject({ kind: 'npc', npc: { id: 'lord' } });
+    expect(touchAt(V, npcs, 5, 16)).toEqual({ kind: 'gate' });
+    expect(touchAt(V, npcs, 1, 5)).toMatchObject({ kind: 'building', building: { id: 'bakery' } });
+    expect(touchAt(V, npcs, 5, 9)).toEqual({ kind: 'none' });
+  });
+});
+
+describe('마을 사람 질문', () => {
+  it('이미 물은 건 빼고', () => {
+    const asked = new Set(V.questions.slice(1).map((q) => q.q));
+    expect(pickVillageQuestion(V.questions, asked, seq(0.5)).q).toBe(V.questions[0].q);
+  });
+  it('보기 순서', () => {
+    const q = V.questions[0];
+    expect(questionOptions(q, seq(0.1))).toEqual({ options: [q.right, q.wrong], answer: 0 });
+    expect(questionOptions(q, seq(0.9))).toEqual({ options: [q.wrong, q.right], answer: 1 });
+  });
+});

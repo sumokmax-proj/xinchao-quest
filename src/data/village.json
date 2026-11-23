@@ -1,0 +1,53 @@
+{
+  "name": "씬짜오 마을",
+  "legend": { ".": "걸을 수 있음", "T": "나무", "C": "성", "A": "반미 가게", "B": "대장간", "S": "서당", "K": "카페", "F": "분수", "G": "성문" },
+  "theme": "village",
+  "rows": [
+    "TTTTTTTTTTT",
+    "T.CCCCCCC.T",
+    "T.CCCCCCC.T",
+    "T.........T",
+    "T.........T",
+    "TAA.....BBT",
+    "TAA.....BBT",
+    "T.........T",
+    "T....F....T",
+    "T.........T",
+    "TSS.....KKT",
+    "TSS.....KKT",
+    "T.........T",
+    "T.........T",
+    "T.........T",
+    "T.........T",
+    "TTTTGGGTTTT"
+  ],
+  "start": { "c": 5, "r": 15 },
+  "spawnArea": { "minC": 1, "maxC": 9, "minR": 3, "maxR": 15 },
+  "buildings": [
+    { "id": "castle", "tile": "C", "name": "성", "need": 0 },
+    { "id": "bakery", "tile": "A", "name": "반미 가게", "need": 0 },
+    { "id": "smith", "tile": "B", "name": "대장간", "need": 8 },
+    { "id": "school", "tile": "S", "name": "서당", "need": 18 },
+    { "id": "cafe", "tile": "K", "name": "카페", "need": 30 },
+    { "id": "fountain", "tile": "F", "name": "분수 광장", "need": 45 },
+    { "id": "festival", "tile": "", "name": "마을 축제 (등불)", "need": 65 }
+  ],
+  "npcs": [
+    { "id": "lord", "name": "Lord Banh-mi-sh", "at": { "c": 5, "r": 3 }, "building": "castle", "role": "lord", "look": "lord" },
+    { "id": "baker", "name": "반미 가게 아주머니", "at": { "c": 3, "r": 6 }, "building": "bakery", "role": "food", "look": "baker" },
+    { "id": "smith", "name": "대장장이", "at": { "c": 7, "r": 6 }, "building": "smith", "role": "gear", "look": "smith" },
+    { "id": "teacher", "name": "훈장님", "at": { "c": 3, "r": 11 }, "building": "school", "role": "book", "look": "teacher" },
+    { "id": "barista", "name": "카페 사장님", "at": { "c": 7, "r": 11 }, "building": "cafe", "role": "question", "look": "barista" },
+    { "id": "guard", "name": "성문 경비병", "at": { "c": 3, "r": 15 }, "building": "castle", "role": "question", "look": "guard" },
+    { "id": "kid", "name": "동네 꼬마", "at": { "c": 8, "r": 9 }, "building": "fountain", "role": "question", "look": "kid" }
+  ],
+  "questions": [
+    { "status": "draft", "q": "Ăn cơm chưa?", "ko": "밥 먹었어요? (인사)", "right": "Ăn rồi, cảm ơn.", "rightKo": "먹었어요, 고마워요.", "wrong": "Tôi là người Hàn Quốc.", "wrongKo": "저는 한국 사람이에요." },
+    { "status": "draft", "q": "Ăn được rau mùi không?", "ko": "고수 먹을 수 있어요?", "right": "Được, tôi thích rau mùi.", "rightKo": "네, 고수 좋아해요.", "wrong": "Bây giờ là ba giờ.", "wrongKo": "지금은 세 시예요." },
+    { "status": "draft", "q": "Biết nói tiếng Việt à?", "ko": "베트남어 할 줄 알아요?", "right": "Một chút thôi.", "rightKo": "조금만요.", "wrong": "Hai mươi nghìn.", "wrongKo": "이만 동." },
+    { "status": "draft", "q": "Sống ở đây có quen không?", "ko": "여기 생활 익숙해요?", "right": "Quen rồi.", "rightKo": "익숙해졌어요.", "wrong": "Rẽ trái.", "wrongKo": "왼쪽으로 꺾으세요." },
+    { "status": "draft", "q": "Ăn được đồ ăn Việt Nam không?", "ko": "베트남 음식 먹을 수 있어요?", "right": "Được, ngon lắm!", "rightKo": "네, 정말 맛있어요!", "wrong": "Tôi ở Hà Nội.", "wrongKo": "저는 하노이에 살아요." },
+    { "status": "draft", "q": "Bạn ở đâu?", "ko": "어디 살아요?", "right": "Tôi ở Hà Nội.", "rightKo": "저는 하노이에 살아요.", "wrong": "Ăn rồi, cảm ơn.", "wrongKo": "먹었어요, 고마워요." },
+    { "status": "draft", "q": "Bạn làm nghề gì?", "ko": "무슨 일 해요?", "right": "Tôi làm việc ở công ty.", "rightKo": "회사에서 일해요.", "wrong": "Một chút thôi.", "wrongKo": "조금만요." }
+  ]
+}

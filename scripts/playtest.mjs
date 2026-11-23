@@ -145,6 +145,10 @@ async function playStage(page, rng, shot, flags) {
       await shot('first-quiz');
       flags.quizShot = true;
     }
+    if (s.quiz?.phase && !flags.phaseShot && s.quiz.acceptsInput) {
+      await shot('boss-phase-quiz');
+      flags.phaseShot = true;
+    }
     if (s.quiz?.kind === 'tone' && !flags.toneShot && s.quiz.acceptsInput) {
       await shot('tone-quiz');
       flags.toneShot = true;

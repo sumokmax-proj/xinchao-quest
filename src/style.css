@@ -48,7 +48,7 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
 .tool{background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:5px 9px;font-size:11px}
 .hint{position:absolute;z-index:5;left:50%;bottom:calc(214px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--panel);border-radius:999px;padding:6px 12px;font-size:12px;color:var(--muted);white-space:nowrap;transition:opacity .4s}
 .banner{position:absolute;z-index:6;left:0;right:0;top:34%;text-align:center;font-family:var(--font-display);font-size:34px;color:var(--gold);-webkit-text-stroke:5px #2a1a00;paint-order:stroke fill;text-shadow:0 3px 0 #000;pointer-events:none;animation:pop 1.6s ease-out forwards}
-.banner small{display:inline-block;font-family:var(--font-body);font-size:14px;font-weight:700;color:var(--ink);-webkit-text-stroke:0;text-shadow:none;margin-top:6px;background:rgba(10,20,17,.7);border-radius:999px;padding:3px 12px}
+.banner small{display:table;margin-left:auto;margin-right:auto;font-family:var(--font-body);font-size:14px;font-weight:700;color:var(--ink);-webkit-text-stroke:0;text-shadow:none;margin-top:6px;background:rgba(10,20,17,.7);border-radius:999px;padding:3px 12px}
 .toasts{position:absolute;z-index:6;top:calc(96px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);display:grid;gap:6px;width:calc(100% - 32px);pointer-events:none}
 .toast{background:var(--ink);color:#1f2a27;border-radius:12px;padding:8px 12px;font-size:14px;text-align:center;box-shadow:0 4px 0 rgba(0,0,0,.35);animation:drop .25s ease-out}
 .toast b{font-weight:800}
@@ -120,6 +120,33 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
 .btn.ghost{background:var(--panel);color:var(--ink);border:1px solid var(--line);box-shadow:0 4px 0 rgba(0,0,0,.35);position:relative}
 .btn.ghost small{color:var(--gold);font-weight:700;margin-left:4px}
 .badge{position:absolute;top:-5px;right:-5px;min-width:22px;height:22px;border-radius:999px;background:var(--red);color:#fff;font-style:normal;font-size:12px;line-height:22px;padding:0 6px}
+.btnpair{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+/* 상점 */
+.shopgold{font-family:var(--font-body);font-size:15px;color:var(--gold);margin-left:6px;vertical-align:middle}
+.shoprow{display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:12px;background:var(--panel);padding:8px 10px;min-height:58px}
+.shoprow.owned{opacity:.6}
+.sbody{flex:1;display:grid;gap:2px}
+.sbody b{font-size:16px}
+.sbody small{color:var(--muted);font-size:12px}
+.buy{min-width:86px;min-height:40px;border-radius:10px;border:0;background:var(--gold);color:#2a1a00;font-weight:800;font-size:13px;font-variant-numeric:tabular-nums}
+.buy:disabled{background:rgba(255,255,255,.1);color:var(--muted);cursor:default}
+.buy.poor{color:#f2a497}
+.sicon{width:30px;height:30px;flex:none;background:var(--gold)}
+.sicon.banhmi{background:#e8b46a;-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M3 14c0-4 6-8 12-8 4 0 6 2 6 4 0 4-7 9-13 9-3 0-5-2-5-5zm5-2 2 2m1-4 2 2m1-4 2 2'/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M3 14c0-4 6-8 12-8 4 0 6 2 6 4 0 4-7 9-13 9-3 0-5-2-5-5zm5-2 2 2m1-4 2 2m1-4 2 2'/%3E%3C/svg%3E") center/contain no-repeat}
+.sicon.hourglass{background:var(--teal);-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M6 2h12v2l-5 8 5 8v2H6v-2l5-8-5-8z'/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M6 2h12v2l-5 8 5 8v2H6v-2l5-8-5-8z'/%3E%3C/svg%3E") center/contain no-repeat}
+.sicon.charm{background:#f2a497;-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 2 4 6v6c0 5 3.5 8.5 8 10 4.5-1.5 8-5 8-10V6z'/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 2 4 6v6c0 5 3.5 8.5 8 10 4.5-1.5 8-5 8-10V6z'/%3E%3C/svg%3E") center/contain no-repeat}
+.sicon.sword1{background:#c8d0d8;-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M20 2l-9 9-2-2-2 2 2 2-5 5 2 2 5-5 2 2 2-2-2-2 9-9z'/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M20 2l-9 9-2-2-2 2 2 2-5 5 2 2 5-5 2 2 2-2-2-2 9-9z'/%3E%3C/svg%3E") center/contain no-repeat}
+.sicon.sword2{background:var(--gold);-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M20 2l-9 9-2-2-2 2 2 2-5 5 2 2 5-5 2 2 2-2-2-2 9-9z'/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M20 2l-9 9-2-2-2 2 2 2-5 5 2 2 5-5 2 2 2-2-2-2 9-9z'/%3E%3C/svg%3E") center/contain no-repeat}
+.sicon.armor1{background:#b08a5a;-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M4 4l4-2 4 2 4-2 4 2v7c0 6-4 9-8 11-4-2-8-5-8-11z'/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M4 4l4-2 4 2 4-2 4 2v7c0 6-4 9-8 11-4-2-8-5-8-11z'/%3E%3C/svg%3E") center/contain no-repeat}
+.sicon.armor2{background:#c8d0d8;-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M4 4l4-2 4 2 4-2 4 2v7c0 6-4 9-8 11-4-2-8-5-8-11z'/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M4 4l4-2 4 2 4-2 4 2v7c0 6-4 9-8 11-4-2-8-5-8-11z'/%3E%3C/svg%3E") center/contain no-repeat}
+/* 반미 버튼 (D-pad 오른쪽 아래) */
+.itembtn{position:absolute;z-index:5;right:14px;bottom:calc(20px + env(safe-area-inset-bottom));width:60px;height:60px;border-radius:50%;border:2px solid rgba(255,255,255,.2);background:rgba(14,28,24,.7);display:grid;place-items:center;touch-action:none}
+.itembtn .sicon{width:32px;height:32px}
+.itembtn b{position:absolute;right:-2px;bottom:-2px;min-width:22px;height:22px;border-radius:999px;background:var(--gold);color:#2a1a00;font-size:12px;line-height:22px}
+.itembtn.urge{animation:teach .9s ease-in-out infinite;border-color:var(--good)}
+/* 엔딩 */
+#endOv.ending h2{font-size:30px}
+#endOv.ending .wordcols{display:none}
 .btnrow{display:grid;grid-template-columns:1fr 1fr 2fr;gap:8px}
 .btnrow .btn{padding:0 6px}
 /* 스테이지 목록 */

@@ -1,9 +1,11 @@
 import { CONFIG, type EnemyKind } from '../config';
 import stagesJson from '../data/stages.json';
 import wordsJson from '../data/words.json';
+import shopJson from '../data/shop.json';
 import { decideBump, faceAngle } from '../combat/BumpAttack';
 import { isCorrect, makeQuestion, resolveQuiz, updateWrongNote, type Question, type Word } from '../combat/QuizSystem';
-import { applyDamage, gainExp, rollDamage } from '../combat/rules';
+import { applyDamage, gainExp, recoverHp, rollDamage } from '../combat/rules';
+import { crossedPhase, phaseBonusHp } from '../combat/BossPhases';
 import { sfx, setSoundEnabled, unlockAudio } from '../audio/Sfx';
 import { initVoice, setVoiceEnabled, speak } from '../audio/Voice';
 import { Goblin } from '../entities/Goblin';
@@ -19,6 +21,7 @@ import { floatText, toScreen } from '../ui/Labels';
 import { hideEnd, hideStart, setStartNote, setStartProfile, showEnd, showStart, type EndSummary } from '../ui/Overlays';
 import { StageSelect } from '../ui/StageSelect';
 import { WordBook } from '../ui/WordBook';
+import { ShopView } from '../ui/ShopView';
 import { QuizBubble } from '../ui/QuizBubble';
 import { banner, toast } from '../ui/Toasts';
 import { CameraRig } from '../world/CameraRig';
@@ -30,10 +33,12 @@ import { dexProgress, heroStatsFor, recordAnswer } from './Progress';
 import { loadSave, persist, type SaveData } from './Save';
 import { Timers } from './Timers';
 import { WaveProgress } from './Waves';
+import { buy, gearEffects, guardedDamage, pickFood, useItem, type GearEffects, type ShopItem } from './Shop';
 import { isUnlocked, lastUnlocked, pickPool, recordClear, scaleEnemy, stageWords, type StageData } from './Stages';
 
 const STAGES = stagesJson as StageData[];
 const WORDS = wordsJson as Word[];
+const SHOP = shopJson as ShopItem[];
 
 /** debugSnapshot()이 돌려주는 형식 */
 export interface DebugSnapshot {
@@ -42,9 +47,12 @@ export interface DebugSnapshot {
   map: string[];
   player: { c: number; r: number; hp: number; maxHp: number; level: number; gold: number; ready: boolean };
   goblins: { kind: string; c: number; r: number; hp: number; maxHp: number; state: string; boss: boolean; telegraph: Cell[] }[];
-  quiz: { answerSide: 0 | 1; acceptsInput: boolean; prompt: string; kind: string } | null;
+  quiz: { answerSide: 0 | 1; acceptsInput: boolean; prompt: string; kind: string; phase: boolean } | null;
   wave: { index: number; total: number };
   stage: { index: number; id: string; total: number; unlocked: number };
+  items: Record<string, number>;
+  gear: string[];
+  ending: boolean;
   stats: { quiz: number; correct: number; kills: number; hurt: number; learned: number };
   /** 저장된 누적 진행 (판이 끝나도 남음) */
   profile: { level: number; gold: number; kills: number; correct: number; answered: number; runs: number; clears: number; collected: number };
@@ -53,6 +61,8 @@ export interface DebugSnapshot {
 interface QuizRun {
   goblin: Goblin;
   timeLeft: number;
+  limit: number; // 제한시간 (모래시계가 있으면 +2초)
+  phase: boolean; // 지역 보스의 HP 단계 퀴즈 (맞히면 추가 피해, 처치는 아님)
   armedAt: number; // 이 시각(ms) 전에는 답 입력 무시
   locked: boolean; // 답을 고른 뒤 결과 연출 중
   question: Question;
@@ -75,6 +85,13 @@ export class Game {
   private waves = new WaveProgress(1);
   private readonly bubble: QuizBubble;
   private readonly book = new WordBook();
+  private readonly shop = new ShopView((id) => this.buyItem(id));
+  private fx: GearEffects = { attack: 0, guard: 0, quizTime: 0, charms: 0 };
+  private charmsLeft = 0;
+  private ending = false;
+  private atkBuffed = false; // 분짜 공격력 버프는 판마다 한 번
+  private stageQuizTime = 0; // 에그커피: 이번 판 퀴즈 +초
+  private mode: 'field' | 'village' = 'field';
   private readonly select = new StageSelect((i) => this.play(i));
   private save: SaveData = loadSave();
   private goblins: Goblin[] = [];
@@ -135,7 +152,13 @@ export class Game {
     this.timers.clear();
     this.endQuiz();
     const pr = this.save.profile;
-    this.player.reset(this.map.start, { ...heroStatsFor(pr.level, pr.exp), gold: pr.gold });
+    this.fx = gearEffects(SHOP, this.save.inventory);
+    this.charmsLeft = this.fx.charms;
+    const base = heroStatsFor(pr.level, pr.exp);
+    this.player.reset(this.map.start, { ...base, attack: base.attack + this.fx.attack, gold: pr.gold });
+    this.ending = false;
+    this.atkBuffed = false;
+    this.stageQuizTime = 0;
     this.cam.snapTo(this.player.x, this.player.z);
     this.run = { quiz: 0, correct: 0, wrong: new Map(), learned: new Map(), kills: 0, start: performance.now() };
     this.result = null;
@@ -194,16 +217,30 @@ export class Game {
     this.running = false;
     this.result = win ? 'win' : 'lose';
     const seconds = Math.round((performance.now() - this.run.start) / 1000);
-    if (win) {
-      this.save.profile = { ...this.save.profile, clears: this.save.profile.clears + 1 };
-      this.save.stages = recordClear(this.save.stages, this.stage.id, seconds);
-      persist(this.save);
-    }
+    const isLast = this.stageIndex === STAGES.length - 1;
+    this.ending = win && isLast;
+    this.save.profile = {
+      ...this.save.profile,
+      seconds: this.save.profile.seconds + seconds,
+      clears: this.save.profile.clears + (win ? 1 : 0),
+      ended: this.save.profile.ended + (this.ending ? 1 : 0),
+    };
+    if (win) this.save.stages = recordClear(this.save.stages, this.stage.id, seconds);
+    persist(this.save);
     const summary: EndSummary = {
       win,
       stageName: this.stage.name,
       hasNext: win && this.stageIndex + 1 < STAGES.length,
-      isLast: this.stageIndex === STAGES.length - 1,
+      isLast,
+      ending: this.ending
+        ? {
+            totalSeconds: this.save.profile.seconds,
+            collected: dexProgress(this.save.dex, WORDS).collected,
+            totalWords: WORDS.length,
+            accuracy: this.save.profile.answered ? Math.round((this.save.profile.correct / this.save.profile.answered) * 100) : 0,
+            kills: this.save.profile.kills,
+          }
+        : null,
       correct: this.run.correct,
       total: this.run.quiz,
       kills: this.run.kills,
@@ -239,6 +276,55 @@ export class Game {
 
   openBook(): void {
     this.book.open(WORDS, this.save.dex, this.save.wrong);
+  }
+
+  /** 상점 열기. food: 반미 가게, gear: 대장간 */
+  openShop(kind: 'food' | 'gear'): void {
+    this.shop.open(SHOP.filter((x) => x.shop === kind), this.save.inventory, this.save.profile.gold, kind === 'food' ? '반미 가게' : '대장간');
+  }
+
+  private buyItem(id: string): void {
+    const item = SHOP.find((x) => x.id === id);
+    if (!item) return;
+    const r = buy(item, this.save.inventory, this.save.profile.gold);
+    if (!r.ok) return;
+    this.save.inventory = r.inv;
+    this.save.profile = { ...this.save.profile, gold: r.gold };
+    // 처음 산 음식 이름은 단어 도감에 들어간다
+    if (item.kind === 'consumable' && WORDS.some((w) => w.vi === item.vi)) {
+      const rec = recordAnswer(this.save.dex, item.vi, true, Date.now());
+      this.save.dex = rec.dex;
+      if (rec.newlyLearned) toast(`<b>도감에 새 단어!</b> ${esc(item.vi)} = ${esc(item.ko)}`, 'level');
+    }
+    persist(this.save);
+    sfx.level();
+    speak(item.vi);
+    this.shop.render(this.save.inventory, this.save.profile.gold);
+    this.updateStartNote();
+    this.player.stats.gold = r.gold;
+    this.updateHud();
+  }
+
+  /** 음식 먹기 (먹기 버튼, E, 스페이스): HP가 많이 빠졌으면 큰 회복 음식부터. 판 중에만, HP가 가득이면 아낀다 */
+  eat(): void {
+    const p = this.player;
+    if (!this.running || this.mode !== 'field' || p.stats.hp <= 0 || p.stats.hp >= p.stats.maxHp) return;
+    const item = pickFood(SHOP, this.save.inventory, p.stats.hp / p.stats.maxHp);
+    if (!item) return;
+    const r = useItem(item.id, this.save.inventory);
+    if (!r.ok) return;
+    this.save.inventory = r.inv;
+    persist(this.save);
+    const heal = Math.round(p.stats.maxHp * (item.heal ?? 0));
+    p.stats.hp = Math.min(p.stats.maxHp, p.stats.hp + heal);
+    floatText(this.cam.camera, p.x, 1.4, p.z, '+' + heal, 'heal');
+    if (item.atkBuff && !this.atkBuffed) {
+      this.atkBuffed = true;
+      p.stats.attack = Math.round(p.stats.attack * (1 + item.atkBuff));
+      toast(`<b>${esc(item.vi)}</b> 힘이 난다! 공격력 ${p.stats.attack}`, 'level');
+    } else toast(`<b>${esc(item.vi)}</b> 냠냠`, 'good');
+    sfx.good();
+    this.updateHud();
   }
 
   /* ---------- 입력 ---------- */
@@ -334,17 +420,26 @@ export class Game {
     p.swing();
     sfx.swing();
     const { damage, crit } = rollDamage(p.stats.attack, this.rng);
+    const hpBefore = g.hp;
     g.hp = applyDamage(g.hp, damage);
     g.takeHit(DIRS[dir]);
     floatText(this.cam.camera, g.x, 1.3, g.z, (crit ? '크리티컬 ' : '') + damage, crit ? 'crit' : '');
     if (crit) sfx.crit();
     else sfx.hit();
     this.cam.shake(crit ? CONFIG.feel.shakeCrit : CONFIG.feel.shakeHit);
-    if (g.hp <= 0) this.startQuiz(g);
+    if (g.hp <= 0) this.startQuiz(g, false);
+    else if (g.stats.phases.length) {
+      const ph = crossedPhase(hpBefore, g.hp, g.maxHp, g.stats.phases, g.phasesDone);
+      if (ph >= 0) {
+        g.phasesDone = ph + 1;
+        this.startQuiz(g, true);
+      }
+    }
   }
 
-  private hurtPlayer(damage: number): void {
+  private hurtPlayer(raw: number): void {
     const p = this.player;
+    const damage = guardedDamage(raw, this.fx.guard);
     p.stats.hp = applyDamage(p.stats.hp, damage);
     this.hurtCount++;
     floatText(this.cam.camera, p.x, 1.3, p.z, '-' + damage, 'hurtn');
@@ -363,32 +458,43 @@ export class Game {
 
   /* ---------- 퀴즈 ---------- */
 
-  private startQuiz(g: Goblin): void {
+  private startQuiz(g: Goblin, phase: boolean): void {
     g.daze();
     this.held = [];
     this.queued = null;
+    const limit = CONFIG.quiz.timeLimit + this.fx.quizTime + this.stageQuizTime;
     this.quiz = {
       goblin: g,
-      timeLeft: CONFIG.quiz.timeLimit,
+      phase,
+      limit,
+      timeLeft: limit,
       armedAt: performance.now() + CONFIG.quiz.inputGuard * 1000,
       locked: false,
-      question: makeQuestion(pickPool(this.pools, this.rng, CONFIG.quiz.olderChance), this.save.wrong, this.rng),
+      question: this.newQuestion(g, phase),
     };
+    if (phase) banner('왕이 비틀거린다!', '맞히면 큰 피해');
     this.showQuestion();
     this.bubble.setTeach(!this.save.answeredQuiz);
     this.bubble.show();
     sfx.quiz();
   }
 
+  /** 지역 보스의 마지막 문제는 어려운 문제 (성조 구별이 가능하면 성조 문제) */
+  private newQuestion(g: Goblin, phase: boolean): Question {
+    const pool = pickPool(this.pools, this.rng, CONFIG.quiz.olderChance);
+    const hard = !phase && g.stats.phases.length > 0 && g.need === 1;
+    return makeQuestion(hard ? WORDS : pool, this.save.wrong, this.rng, CONFIG.quiz.reviewChance, hard ? 1 : CONFIG.quiz.toneChance);
+  }
+
   private showQuestion(): void {
     if (!this.quiz) return;
-    this.bubble.setQuestion(this.quiz.question, this.quiz.goblin.need, this.quiz.goblin.boss);
+    this.bubble.setQuestion(this.quiz.question, this.quiz.phase ? 1 : this.quiz.goblin.need, this.quiz.goblin.boss);
   }
 
   private nextQuestion(): void {
     if (!this.quiz) return;
-    this.quiz.question = makeQuestion(pickPool(this.pools, this.rng, CONFIG.quiz.olderChance), this.save.wrong, this.rng);
-    this.quiz.timeLeft = CONFIG.quiz.timeLimit;
+    this.quiz.question = this.newQuestion(this.quiz.goblin, this.quiz.phase);
+    this.quiz.timeLeft = this.quiz.limit;
     this.quiz.locked = false;
     this.showQuestion();
   }
@@ -423,6 +529,39 @@ export class Game {
     speak(q.word.vi);
     const outcome = resolveQuiz(g.need, ok, g.maxHp, g.stats.quizCount);
     const pair = `${esc(q.word.vi)} = ${esc(q.word.ko)}`;
+
+    if (quiz.phase) {
+      // 지역 보스 HP 단계 퀴즈: 맞히면 추가 피해, 틀리면 조금 회복. 어느 쪽이든 전투 재개
+      if (ok) {
+        this.run.correct++;
+        sfx.good();
+        toast(`<b>정답!</b> ${pair} · 왕에게 큰 피해`, 'good');
+      } else {
+        this.run.wrong.set(q.word.vi, q.word.ko);
+        sfx.bad();
+        toast(`${side === null ? '시간 초과' : '오답'} · 정답은 <b>${esc(q.answer)}</b>`, 'bad');
+      }
+      this.timers.after(CONFIG.quiz.recoverDelay, () => {
+        const hp = ok ? phaseBonusHp(g.hp, g.maxHp, CONFIG.quiz.phaseBonus) : Math.min(g.maxHp, g.hp + recoverHp(g.maxHp));
+        floatText(this.cam.camera, g.x, 1.5 * g.stats.scale, g.z, ok ? '-' + (g.hp - hp) : '+' + (hp - g.hp), ok ? 'crit' : 'heal');
+        if (ok) this.cam.shake(CONFIG.feel.shakeCrit);
+        g.recover(hp, g.need);
+        this.endQuiz();
+      });
+      return;
+    }
+
+    if (outcome.kind === 'recover' && this.charmsLeft > 0) {
+      // 행운 부적: 틀려도 적이 회복하지 않고 바로 다음 문제 (오답노트에는 들어감)
+      this.charmsLeft--;
+      this.run.wrong.set(q.word.vi, q.word.ko);
+      sfx.bad();
+      toast(`부적이 지켜줬어요 · 정답은 <b>${esc(q.answer)}</b>`, 'bad');
+      this.timers.after(CONFIG.quiz.nextQuestionDelay + 0.4, () => {
+        if (this.quiz && this.quiz.goblin === g) this.nextQuestion();
+      });
+      return;
+    }
 
     if (outcome.kind === 'next') {
       this.run.correct++;
@@ -543,7 +682,7 @@ export class Game {
       const pos = g.model.group.position;
       const s = toScreen(camera, pos.x, 1.45 * g.stats.scale, pos.z);
       this.bubble.position(s.x, s.y, screenW);
-      this.bubble.setTimeLeft(this.quiz.timeLeft / CONFIG.quiz.timeLimit);
+      this.bubble.setTimeLeft(this.quiz.timeLeft / this.quiz.limit);
     }
   }
 
@@ -585,10 +724,14 @@ export class Game {
             acceptsInput: !q.locked && performance.now() >= q.armedAt,
             prompt: q.question.prompt,
             kind: q.question.kind,
+            phase: q.phase,
           }
         : null,
       wave: { index: this.waves.index, total: this.stage.waves.length },
       stage: { index: this.stageIndex, id: this.stage.id, total: STAGES.length, unlocked: lastUnlocked(STAGES, this.save.stages) },
+      items: { ...this.save.inventory.items },
+      gear: this.save.inventory.gear.slice(),
+      ending: this.ending,
       stats: { quiz: this.run.quiz, correct: this.run.correct, kills: this.run.kills, hurt: this.hurtCount, learned: this.run.learned.size },
       profile: { ...this.save.profile, collected: dexProgress(this.save.dex, WORDS).collected },
     };
@@ -596,5 +739,6 @@ export class Game {
 
   private updateHud(): void {
     Hud.update({ ...this.player.stats });
+    Hud.setItem(this.save.inventory.items.banhmi ?? 0, this.player.stats.hp / this.player.stats.maxHp);
   }
 }

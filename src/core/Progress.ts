@@ -16,6 +16,8 @@ export interface Profile {
   answered: number; // 지금까지 푼 문제 (시간 초과 포함)
   runs: number; // 시작한 판 수
   clears: number; // 클리어한 판 수
+  seconds: number; // 총 플레이 시간(초)
+  ended: number; // 엔딩을 본 횟수
 }
 
 /** 단어 하나의 학습 기록 (단어 도감). 처음 맞힌 순간 도감에 들어간다 */
@@ -27,7 +29,7 @@ export interface DexEntry {
 
 export type Dex = Record<string, DexEntry>;
 
-export const freshProfile = (): Profile => ({ level: 1, exp: 0, gold: 0, kills: 0, correct: 0, answered: 0, runs: 0, clears: 0 });
+export const freshProfile = (): Profile => ({ level: 1, exp: 0, gold: 0, kills: 0, correct: 0, answered: 0, runs: 0, clears: 0, seconds: 0, ended: 0 });
 
 /** 레벨에서 공격력·최대 HP를 계산한다. 판을 시작할 때 HP는 가득 */
 export function heroStatsFor(level: number, exp: number, p = CONFIG.player, l = CONFIG.level): HeroStats {
@@ -72,6 +74,8 @@ export function sanitizeProfile(raw: unknown): Profile {
     answered: num(r.answered, 0, d.answered),
     runs: num(r.runs, 0, d.runs),
     clears: num(r.clears, 0, d.clears),
+    seconds: num(r.seconds, 0, d.seconds),
+    ended: num(r.ended, 0, d.ended),
   };
 }
 

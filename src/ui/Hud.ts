@@ -19,6 +19,13 @@ export const Hud = {
     el('expFill').style.width = (s.exp / expToNext(s.level)) * 100 + '%';
     el('goldChip').textContent = fmtDong(s.gold);
   },
+  /** 반미 버튼: 가진 게 없으면 숨김, HP가 낮으면 반짝여서 "먹을 때"를 알려줌 */
+  setItem(count: number, hpRatio: number): void {
+    const b = el('btnItem');
+    b.hidden = count <= 0;
+    el('itemCount').textContent = String(count);
+    b.classList.toggle('urge', hpRatio < 0.35);
+  },
   setWave(index: number, total: number): void {
     el('waveChip').textContent = `웨이브 ${index + 1} / ${total}`;
   },

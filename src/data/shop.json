@@ -1,0 +1,12 @@
+[
+  { "id": "banhmi", "shop": "food", "vi": "bánh mì", "ko": "반미", "desc": "HP 30% 회복", "kind": "consumable", "price": 15000, "max": 5, "heal": 0.3 },
+  { "id": "bunCha", "shop": "food", "vi": "bún chả", "ko": "분짜", "desc": "HP 40% 회복 + 이번 판 공격력 +20%", "kind": "consumable", "price": 40000, "max": 3, "heal": 0.4, "atkBuff": 0.2 },
+  { "id": "pho", "shop": "food", "vi": "phở bò", "ko": "소고기 쌀국수", "desc": "HP 70% 회복", "kind": "consumable", "price": 50000, "max": 3, "heal": 0.7 },
+  { "id": "caPheTrung", "shop": "food", "vi": "cà phê trứng", "ko": "에그커피", "desc": "판을 시작할 때 마시면 이번 판 퀴즈 시간 +2초", "kind": "consumable", "price": 30000, "max": 3, "stageQuizTime": 2 },
+  { "id": "hourglass", "shop": "gear", "vi": "đồng hồ cát", "ko": "모래시계", "desc": "퀴즈 시간 늘 +2초", "kind": "gear", "price": 120000, "quizTime": 2 },
+  { "id": "charm", "shop": "gear", "vi": "bùa may mắn", "ko": "행운 부적", "desc": "판마다 한 번, 틀려도 적이 회복하지 않음", "kind": "gear", "price": 180000, "charms": 1 },
+  { "id": "sword1", "shop": "gear", "vi": "kiếm thép", "ko": "강철 검", "desc": "공격력 +6", "kind": "gear", "price": 100000, "attack": 6 },
+  { "id": "sword2", "shop": "gear", "vi": "kiếm vàng", "ko": "황금 검", "desc": "공격력 +14", "kind": "gear", "price": 400000, "attack": 14, "requires": "sword1" },
+  { "id": "armor1", "shop": "gear", "vi": "áo giáp da", "ko": "가죽 갑옷", "desc": "받는 피해 -15%", "kind": "gear", "price": 100000, "guard": 0.15 },
+  { "id": "armor2", "shop": "gear", "vi": "áo giáp sắt", "ko": "철 갑옷", "desc": "받는 피해 -30%", "kind": "gear", "price": 400000, "guard": 0.3, "requires": "armor1" }
+]

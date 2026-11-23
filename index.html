@@ -43,6 +43,8 @@
   <div class="toasts" id="toasts" aria-live="polite"></div>
   <div id="bannerHost"></div>
 
+  <button type="button" class="itembtn" id="btnItem" aria-label="반미 먹기 (HP 회복)" hidden><span class="sicon banhmi"></span><b id="itemCount">0</b></button>
+
   <nav class="dpad" id="dpad" aria-label="이동">
     <button type="button" data-dir="up" aria-label="위"><svg viewBox="0 0 24 24"><path d="M12 5l8 11H4z"/></svg></button>
     <button type="button" data-dir="left" aria-label="왼쪽"><svg viewBox="0 0 24 24"><path d="M5 12l11-8v16z"/></svg></button>
@@ -63,6 +65,12 @@
     <h2>어디로 갈까요?</h2>
     <div class="booklist" id="stageList"></div>
     <button type="button" class="btn ghost" id="btnStageClose">닫기</button>
+  </section>
+
+  <section class="overlay book" id="shopOv" hidden>
+    <h2><span id="shopTitle">상점</span> <small class="shopgold" id="shopGold"></small></h2>
+    <div class="booklist" id="shopList"></div>
+    <button type="button" class="btn ghost" id="btnShopClose">닫기</button>
   </section>
 
   <section class="overlay book" id="bookOv" hidden>

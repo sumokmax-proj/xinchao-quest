@@ -36,6 +36,8 @@ export class Goblin {
   readonly maxHp: number;
   /** 처치까지 남은 퀴즈 수 */
   need: number;
+  /** 지역 보스: 지나간 HP 단계 수 */
+  phasesDone = 0;
   state: GoblinState = 'idle';
   moveCooldown: number;
   attackCooldown: number;

@@ -8,8 +8,10 @@ export interface StageData {
   map: string; // src/data/maps/<map>.json
   /** 이 스테이지에서 주로 나오는 단어 주제. 비어 있으면 모든 주제 */
   topics: string[];
-  /** 적 HP·피해·보상 배율 (1 = 기본) */
+  /** 적 HP·보상 배율 (1 = 기본) */
   power: number;
+  /** 적 공격 피해 배율 (1 = 기본) */
+  damage: number;
   waves: WaveData[];
 }
 
@@ -66,11 +68,11 @@ export function pickPool<W>(pools: { main: W[]; older: W[] }, rng: Rng, olderCha
 }
 
 /** 적 능력치에 스테이지 배율 적용 (반올림) */
-export function scaleEnemy<T extends { hp: number; damage: number; exp: number; gold: number }>(stats: T, power: number): T {
+export function scaleEnemy<T extends { hp: number; damage: number; exp: number; gold: number }>(stats: T, power: number, damage: number = power): T {
   return {
     ...stats,
     hp: Math.round(stats.hp * power),
-    damage: Math.round(stats.damage * power),
+    damage: Math.round(stats.damage * damage),
     exp: Math.round(stats.exp * power),
     gold: Math.round((stats.gold * power) / 500) * 500, // 동(đồng)은 500 단위로
   } as T;

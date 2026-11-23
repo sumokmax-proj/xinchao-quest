@@ -12,6 +12,7 @@ import { makeHero } from '../render/models';
 import { Particles } from '../render/Effects';
 import { applyTheme, buildMap, createScene, disposeMap } from '../render/scene';
 import { getTheme } from '../render/themes';
+import { MONSTER_COLOR } from '../render/monsters';
 import { el, esc, fmtDong } from '../ui/dom';
 import { Hud } from '../ui/Hud';
 import { floatText, toScreen } from '../ui/Labels';
@@ -40,7 +41,7 @@ export interface DebugSnapshot {
   result: 'win' | 'lose' | null;
   map: string[];
   player: { c: number; r: number; hp: number; maxHp: number; level: number; gold: number; ready: boolean };
-  goblins: { c: number; r: number; hp: number; maxHp: number; state: string; boss: boolean; telegraph: Cell | null }[];
+  goblins: { kind: string; c: number; r: number; hp: number; maxHp: number; state: string; boss: boolean; telegraph: Cell[] }[];
   quiz: { answerSide: 0 | 1; acceptsInput: boolean; prompt: string; kind: string } | null;
   wave: { index: number; total: number };
   stage: { index: number; id: string; total: number; unlocked: number };
@@ -283,7 +284,7 @@ export class Game {
     const occupied: Cell[] = [this.player.cell, ...this.goblins.filter((g) => g.alive).map((g) => ({ c: g.c, r: g.r }))];
     const ai = CONFIG.goblinAi;
     const cell = findSpawnCell(this.grid, this.map.spawnArea, occupied, this.player.cell, ai.spawnMinDistance, this.rng, ai.spawnMaxTries);
-    const stats = scaleEnemy(CONFIG.enemies[kind], this.stage.power);
+    const stats = scaleEnemy(CONFIG.enemies[kind], this.stage.power, this.stage.damage);
     this.goblins.push(new Goblin(kind, cell.c, cell.r, this.grid, this.scene, this.rng, stats));
   }
 
@@ -455,7 +456,7 @@ export class Game {
     sfx.swing();
     g.kill();
     this.run.kills++;
-    this.particles.burst(g.x, g.z, g.boss ? 26 : 14, g.boss ? '#d63b2b' : '#6aa83e');
+    this.particles.burst(g.x, g.z, g.boss ? 26 : 14, MONSTER_COLOR[g.kind]);
     this.cam.shake(g.boss ? CONFIG.feel.shakeBossKill : CONFIG.feel.shakeKill);
     const { exp, gold } = g.stats;
     const p = this.player;
@@ -534,16 +535,33 @@ export class Game {
     const camera = this.cam.camera;
     for (const g of this.goblins) {
       const pos = g.model.group.position;
-      const s = toScreen(camera, pos.x, g.boss ? 1.75 : 1.3, pos.z);
+      const s = toScreen(camera, pos.x, 1.3 * g.stats.scale, pos.z);
       g.hpLabel.update(g.state === 'idle', s.x, s.y, g.hp / g.maxHp);
     }
     if (this.quiz) {
       const g = this.quiz.goblin;
       const pos = g.model.group.position;
-      const s = toScreen(camera, pos.x, g.boss ? 1.95 : 1.5, pos.z);
+      const s = toScreen(camera, pos.x, 1.45 * g.stats.scale, pos.z);
       this.bubble.position(s.x, s.y, screenW);
       this.bubble.setTimeLeft(this.quiz.timeLeft / CONFIG.quiz.timeLimit);
     }
+  }
+
+  /** 개발용: 모든 몬스터를 플레이어 앞에 줄 세워 멈춰 둔다 (모델 확인 스크린샷용, npm run playtest -- --gallery) */
+  debugGallery(): void {
+    hideStart();
+    this.goblins.forEach((g) => g.dispose());
+    this.goblins = [];
+    const kinds = Object.keys(CONFIG.enemies) as EnemyKind[];
+    const spots = [
+      { c: 2, r: 12 }, { c: 5, r: 12 }, { c: 8, r: 12 },
+      { c: 2, r: 10 }, { c: 5, r: 10 }, { c: 8, r: 10 },
+      { c: 5, r: 8 }, { c: 2, r: 8 }, { c: 8, r: 8 },
+    ];
+    kinds.forEach((k, i) => {
+      const s = spots[i % spots.length];
+      this.goblins.push(new Goblin(k, s.c, s.r, this.grid, this.scene, this.rng));
+    });
   }
 
   /**
@@ -560,7 +578,7 @@ export class Game {
       player: { c: p.c, r: p.r, hp: p.stats.hp, maxHp: p.stats.maxHp, level: p.stats.level, gold: p.stats.gold, ready: p.ready },
       goblins: this.goblins
         .filter((g) => g.alive)
-        .map((g) => ({ c: g.c, r: g.r, hp: g.hp, maxHp: g.maxHp, state: g.state, boss: g.boss, telegraph: g.telegraphCell })),
+        .map((g) => ({ kind: g.kind, c: g.c, r: g.r, hp: g.hp, maxHp: g.maxHp, state: g.state, boss: g.boss, telegraph: g.telegraphCells })),
       quiz: q
         ? {
             answerSide: q.question.options.indexOf(q.question.answer) as 0 | 1,

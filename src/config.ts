@@ -4,6 +4,8 @@
  * 바꾸면 오너에게 "이전 값 → 새 값"을 표로 알린다.
  * 시간 단위는 모두 초(second).
  */
+import type { AttackPattern } from './combat/Telegraph';
+
 export const CONFIG = {
   player: {
     moveDuration: 0.15, // 한 칸 이동에 걸리는 시간
@@ -38,6 +40,9 @@ export const CONFIG = {
       exp: 12,
       gold: 3000,
       scale: 1,
+      pattern: 'single', // 공격 모양 (combat/Telegraph.ts)
+      range: 1,
+      name: '고블린',
     },
     boss: {
       hp: 70,
@@ -50,6 +55,89 @@ export const CONFIG = {
       exp: 40,
       gold: 20000,
       scale: 1.35,
+      pattern: 'single',
+      range: 1,
+      name: '대장 고블린',
+    },
+    /** 대나무 숲: 빠르고 약함. 예고가 짧다 */
+    monkey: {
+      hp: 20,
+      damage: 6,
+      telegraph: 0.6,
+      attackRecover: 0.9,
+      moveDuration: 0.16,
+      chaseStepDelay: 0.28,
+      quizCount: 1,
+      exp: 10,
+      gold: 2500,
+      scale: 0.9,
+      pattern: 'single',
+      range: 1,
+      name: '원숭이',
+    },
+    /** 홍강 둑길: 느리고 단단함. 앞으로 2칸 들이받기 */
+    buffalo: {
+      hp: 56,
+      damage: 13,
+      telegraph: 1.0,
+      attackRecover: 1.5,
+      moveDuration: 0.4,
+      chaseStepDelay: 0.85,
+      quizCount: 1,
+      exp: 20,
+      gold: 5000,
+      scale: 1.1,
+      pattern: 'line2',
+      range: 1,
+      name: '물소',
+    },
+    /** 시장 골목: 앞 칸과 좌우까지 물어뜯기 */
+    dog: {
+      hp: 34,
+      damage: 10,
+      telegraph: 0.72,
+      attackRecover: 1.1,
+      moveDuration: 0.2,
+      chaseStepDelay: 0.42,
+      quizCount: 1,
+      exp: 15,
+      gold: 4000,
+      scale: 0.95,
+      pattern: 'wide',
+      range: 1,
+      name: '들개',
+    },
+    /** 논두렁: 떨어진 곳에서 일직선으로 물총 */
+    frog: {
+      hp: 24,
+      damage: 9,
+      telegraph: 0.9,
+      attackRecover: 1.7,
+      moveDuration: 0.3,
+      chaseStepDelay: 0.75,
+      quizCount: 1,
+      exp: 15,
+      gold: 4000,
+      scale: 0.9,
+      pattern: 'ranged',
+      range: 4,
+      name: '개구리',
+    },
+    /** 고블린 요새의 지역 보스: 3칸 휘두르기와 주변 8칸 내려찍기를 번갈아 */
+    king: {
+      hp: 120,
+      damage: 16,
+      telegraph: 0.9,
+      attackRecover: 1.0,
+      moveDuration: 0.34,
+      chaseStepDelay: 0.6,
+      quizCount: 3,
+      exp: 150,
+      gold: 100000,
+      scale: 1.7,
+      pattern: 'slam',
+      range: 1,
+      name: '고블린 왕',
     },
   },
 
@@ -117,6 +205,9 @@ export type EnemyKind = keyof typeof CONFIG.enemies;
 
 /** 적 한 종류의 능력치 (스테이지 배율을 곱한 뒤의 값도 이 모양) */
 export interface EnemyStats {
+  pattern: AttackPattern;
+  range: number;
+  name: string;
   hp: number;
   damage: number;
   telegraph: number;

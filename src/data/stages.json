@@ -3,64 +3,245 @@
     "id": "meadow",
     "name": "마을 앞 풀밭",
     "map": "field-01",
-    "topics": ["인사", "자기소개"],
+    "topics": [
+      "인사",
+      "자기소개"
+    ],
     "power": 1,
+    "damage": 1,
     "waves": [
-      { "label": "고블린 3마리", "enemies": ["goblin", "goblin", "goblin"] },
-      { "label": "고블린 4마리", "enemies": ["goblin", "goblin", "goblin", "goblin"] },
-      { "label": "대장 고블린 등장", "enemies": ["goblin", "goblin", "boss"] }
+      {
+        "label": "고블린 3마리",
+        "enemies": [
+          "goblin",
+          "goblin",
+          "goblin"
+        ]
+      },
+      {
+        "label": "고블린 4마리",
+        "enemies": [
+          "goblin",
+          "goblin",
+          "goblin",
+          "goblin"
+        ]
+      },
+      {
+        "label": "대장 고블린 등장",
+        "enemies": [
+          "goblin",
+          "goblin",
+          "boss"
+        ]
+      }
     ]
   },
   {
     "id": "bamboo",
     "name": "대나무 숲길",
     "map": "bamboo-02",
-    "topics": ["가족", "일상"],
-    "power": 1.25,
+    "topics": [
+      "가족",
+      "일상"
+    ],
+    "power": 1.6,
+    "damage": 1.25,
     "waves": [
-      { "label": "고블린 4마리", "enemies": ["goblin", "goblin", "goblin", "goblin"] },
-      { "label": "고블린 5마리", "enemies": ["goblin", "goblin", "goblin", "goblin", "goblin"] },
-      { "label": "고블린 무리", "enemies": ["goblin", "goblin", "goblin", "goblin"] },
-      { "label": "대장 고블린 등장", "enemies": ["goblin", "goblin", "goblin", "boss"] }
+      {
+        "label": "원숭이가 나타났다",
+        "enemies": [
+          "goblin",
+          "goblin",
+          "monkey",
+          "monkey"
+        ]
+      },
+      {
+        "label": "원숭이 무리",
+        "enemies": [
+          "monkey",
+          "monkey",
+          "monkey",
+          "goblin",
+          "goblin"
+        ]
+      },
+      {
+        "label": "나무 위에서 우르르",
+        "enemies": [
+          "monkey",
+          "monkey",
+          "monkey",
+          "monkey",
+          "goblin"
+        ]
+      },
+      {
+        "label": "대장 고블린 등장",
+        "enemies": [
+          "goblin",
+          "monkey",
+          "monkey",
+          "boss"
+        ]
+      }
     ]
   },
   {
     "id": "river",
     "name": "홍강 둑길",
     "map": "river-03",
-    "topics": ["숫자", "카페"],
-    "power": 1.5,
+    "topics": [
+      "숫자",
+      "카페"
+    ],
+    "power": 2.4,
+    "damage": 1.5,
     "waves": [
-      { "label": "고블린 4마리", "enemies": ["goblin", "goblin", "goblin", "goblin"] },
-      { "label": "고블린 5마리", "enemies": ["goblin", "goblin", "goblin", "goblin", "goblin"] },
-      { "label": "고블린 무리", "enemies": ["goblin", "goblin", "goblin", "goblin", "goblin"] },
-      { "label": "대장 고블린 등장", "enemies": ["goblin", "goblin", "goblin", "boss"] }
+      {
+        "label": "물소가 나타났다",
+        "enemies": [
+          "buffalo",
+          "goblin",
+          "goblin",
+          "monkey"
+        ]
+      },
+      {
+        "label": "물소 두 마리",
+        "enemies": [
+          "buffalo",
+          "buffalo",
+          "monkey",
+          "monkey"
+        ]
+      },
+      {
+        "label": "강가의 무리",
+        "enemies": [
+          "buffalo",
+          "goblin",
+          "goblin",
+          "monkey",
+          "monkey"
+        ]
+      },
+      {
+        "label": "대장 고블린 등장",
+        "enemies": [
+          "buffalo",
+          "buffalo",
+          "monkey",
+          "boss"
+        ]
+      }
     ]
   },
   {
     "id": "market",
     "name": "시장 골목",
     "map": "market-04",
-    "topics": ["시장"],
-    "power": 1.8,
+    "topics": [
+      "시장"
+    ],
+    "power": 3.2,
+    "damage": 1.8,
     "waves": [
-      { "label": "고블린 4마리", "enemies": ["goblin", "goblin", "goblin", "goblin"] },
-      { "label": "고블린 5마리", "enemies": ["goblin", "goblin", "goblin", "goblin", "goblin"] },
-      { "label": "고블린 무리", "enemies": ["goblin", "goblin", "goblin", "goblin", "goblin"] },
-      { "label": "대장 고블린 둘", "enemies": ["goblin", "goblin", "boss", "boss"] }
+      {
+        "label": "들개가 나타났다",
+        "enemies": [
+          "dog",
+          "dog",
+          "goblin",
+          "goblin"
+        ]
+      },
+      {
+        "label": "들개 무리",
+        "enemies": [
+          "dog",
+          "dog",
+          "dog",
+          "monkey",
+          "monkey"
+        ]
+      },
+      {
+        "label": "시장이 시끌벅적",
+        "enemies": [
+          "dog",
+          "dog",
+          "buffalo",
+          "goblin",
+          "goblin"
+        ]
+      },
+      {
+        "label": "대장 고블린 둘",
+        "enemies": [
+          "dog",
+          "dog",
+          "monkey",
+          "boss",
+          "boss"
+        ]
+      }
     ]
   },
   {
     "id": "paddy",
     "name": "논두렁 길",
     "map": "paddy-05",
-    "topics": ["길", "시간"],
-    "power": 2.1,
+    "topics": [
+      "길",
+      "시간"
+    ],
+    "power": 3.8,
+    "damage": 2.1,
     "waves": [
-      { "label": "고블린 5마리", "enemies": ["goblin", "goblin", "goblin", "goblin", "goblin"] },
-      { "label": "고블린 무리", "enemies": ["goblin", "goblin", "goblin", "goblin", "goblin"] },
-      { "label": "고블린 무리", "enemies": ["goblin", "goblin", "goblin", "goblin", "goblin", "goblin"] },
-      { "label": "대장 고블린 둘", "enemies": ["goblin", "goblin", "goblin", "boss", "boss"] }
+      {
+        "label": "개구리가 나타났다",
+        "enemies": [
+          "frog",
+          "frog",
+          "goblin",
+          "goblin",
+          "dog"
+        ]
+      },
+      {
+        "label": "개구리 합창",
+        "enemies": [
+          "frog",
+          "frog",
+          "frog",
+          "monkey",
+          "monkey"
+        ]
+      },
+      {
+        "label": "논두렁 혼전",
+        "enemies": [
+          "frog",
+          "frog",
+          "buffalo",
+          "buffalo",
+          "dog",
+          "dog"
+        ]
+      },
+      {
+        "label": "대장 고블린 둘",
+        "enemies": [
+          "frog",
+          "frog",
+          "dog",
+          "monkey",
+          "boss",
+          "boss"
+        ]
+      }
     ]
   },
   {
@@ -68,11 +249,48 @@
     "name": "고블린 요새",
     "map": "fort-06",
     "topics": [],
-    "power": 2.4,
+    "power": 4.4,
+    "damage": 2.4,
     "waves": [
-      { "label": "요새 경비", "enemies": ["goblin", "goblin", "goblin", "goblin", "goblin"] },
-      { "label": "대장들", "enemies": ["goblin", "goblin", "boss", "boss"] },
-      { "label": "고블린 왕", "enemies": ["boss"] }
+      {
+        "label": "요새 경비",
+        "enemies": [
+          "goblin",
+          "goblin",
+          "goblin",
+          "dog",
+          "dog",
+          "frog"
+        ]
+      },
+      {
+        "label": "정예 부대",
+        "enemies": [
+          "buffalo",
+          "buffalo",
+          "monkey",
+          "monkey",
+          "frog",
+          "frog"
+        ]
+      },
+      {
+        "label": "대장들",
+        "enemies": [
+          "boss",
+          "boss",
+          "dog",
+          "frog"
+        ]
+      },
+      {
+        "label": "고블린 왕",
+        "enemies": [
+          "king",
+          "goblin",
+          "goblin"
+        ]
+      }
     ]
   }
 ]

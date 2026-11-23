@@ -1,11 +1,12 @@
 import type * as THREE from 'three';
 import { CONFIG, type EnemyKind, type EnemyStats } from '../config';
 import { faceAngle } from '../combat/BumpAttack';
-import { telegraphDone, telegraphHits, telegraphProgress, type TelegraphState } from '../combat/Telegraph';
+import { attackCells, canShoot, telegraphDone, telegraphHits, telegraphProgress, type AttackPattern, type TelegraphState } from '../combat/Telegraph';
 import { easeInOut, easeOut, lerpAngle } from '../core/math';
 import { rand, type Rng } from '../core/random';
 import { makeTelegraphMesh } from '../render/Effects';
-import { disposeObject, makeGoblin, type GoblinModel } from '../render/models';
+import { disposeObject, type GoblinModel } from '../render/models';
+import { makeMonster } from '../render/monsters';
 import { HpLabel } from '../ui/Labels';
 import type { Cell, Grid, Step } from '../world/Grid';
 import { chooseGoblinStep, isAdjacent } from './goblinBrain';
@@ -38,7 +39,8 @@ export class Goblin {
   state: GoblinState = 'idle';
   moveCooldown: number;
   attackCooldown: number;
-  private tele: { state: TelegraphState; mesh: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial> } | null = null;
+  private tele: { state: TelegraphState; meshes: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>[] } | null = null;
+  private slamNext = false; // 고블린 왕: 휘두르기와 내려찍기를 번갈아
   private flashT = 0;
   private knockX = 0;
   private knockZ = 0;
@@ -58,8 +60,8 @@ export class Goblin {
     private rng: Rng,
     stats: EnemyStats = CONFIG.enemies[kind],
   ) {
-    this.boss = kind === 'boss';
     this.stats = stats;
+    this.boss = stats.quizCount > 1;
     this.hp = this.maxHp = this.stats.hp;
     this.need = this.stats.quizCount;
     const ai = CONFIG.goblinAi;
@@ -68,16 +70,16 @@ export class Goblin {
     this.wanderDelay = rand(rng, ai.wanderMin, ai.wanderMax);
     this.x = this.fromX = grid.worldX(c);
     this.z = this.fromZ = grid.worldZ(r);
-    this.model = makeGoblin(this.boss);
+    this.model = makeMonster(kind);
     this.model.group.position.set(this.x, 0, this.z);
     this.model.group.scale.setScalar(0.01);
     scene.add(this.model.group);
     this.hpLabel = new HpLabel(this.boss);
   }
 
-  /** 빨간 예고 중인 칸 (없으면 null). 자동 플레이 점검용 */
-  get telegraphCell(): Cell | null {
-    return this.tele ? { ...this.tele.state.cell } : null;
+  /** 빨간 예고 중인 칸들 (없으면 빈 배열). 자동 플레이 점검용 */
+  get telegraphCells(): Cell[] {
+    return this.tele ? this.tele.state.cells.map((c) => ({ ...c })) : [];
   }
 
   get dazed(): boolean {
@@ -116,8 +118,10 @@ export class Goblin {
 
   clearTelegraph(): void {
     if (!this.tele) return;
-    this.scene.remove(this.tele.mesh);
-    this.tele.mesh.material.dispose();
+    for (const m of this.tele.meshes) {
+      this.scene.remove(m);
+      m.material.dispose();
+    }
     this.tele = null;
   }
 
@@ -186,7 +190,8 @@ export class Goblin {
     if (this.tele) {
       const t = this.tele.state;
       t.elapsed += dt;
-      this.tele.mesh.material.opacity = 0.18 + 0.5 * telegraphProgress(t) + Math.sin(t.elapsed * 30) * 0.08;
+      const op = 0.18 + 0.5 * telegraphProgress(t) + Math.sin(t.elapsed * 30) * 0.08;
+      for (const m of this.tele.meshes) m.material.opacity = op;
       if (telegraphDone(t)) {
         this.lungeT = 0;
         if (telegraphHits(t, ctx.player, ctx.playerHp)) ctx.onHitPlayer(this.stats.damage);
@@ -198,6 +203,12 @@ export class Goblin {
     if (this.moveT < 1) return;
 
     const me = { c: this.c, r: this.r };
+    // 원거리(개구리): 같은 줄에 들어오면 멈춰서 쏜다
+    if (this.stats.pattern === 'ranged' && canShoot(me, ctx.player, this.stats.range, (c, r) => this.grid.isBlocked(c, r))) {
+      this.face = faceAngle(Math.sign(ctx.player.c - this.c), Math.sign(ctx.player.r - this.r));
+      if (this.attackCooldown <= 0 && ctx.playerHp > 0) this.startTelegraph(ctx.player);
+      return;
+    }
     if (isAdjacent(me, ctx.player)) {
       this.face = faceAngle(ctx.player.c - this.c, ctx.player.r - this.r);
       if (this.attackCooldown <= 0 && ctx.playerHp > 0) this.startTelegraph(ctx.player);
@@ -217,9 +228,21 @@ export class Goblin {
   }
 
   private startTelegraph(target: Cell): void {
-    const mesh = makeTelegraphMesh(this.grid.worldX(target.c), this.grid.worldZ(target.r));
-    this.scene.add(mesh);
-    this.tele = { state: { cell: { ...target }, elapsed: 0, duration: this.stats.telegraph }, mesh };
-    this.face = faceAngle(target.c - this.c, target.r - this.r);
+    let pattern: AttackPattern = this.stats.pattern;
+    if (pattern === 'slam') {
+      // 고블린 왕: 3칸 휘두르기 → 주변 8칸 내려찍기 → 휘두르기 ...
+      pattern = this.slamNext ? 'slam' : 'wide';
+      this.slamNext = !this.slamNext;
+    }
+    const cells = attackCells(pattern, { c: this.c, r: this.r }, target, (c, r) => this.grid.isBlocked(c, r), this.stats.range);
+    const meshes = cells.map((cell) => {
+      const mesh = makeTelegraphMesh(this.grid.worldX(cell.c), this.grid.worldZ(cell.r));
+      this.scene.add(mesh);
+      return mesh;
+    });
+    // 내려찍기는 시간이 조금 더 걸린다 (8칸을 보고 두 칸 물러날 시간)
+    const duration = pattern === 'slam' ? this.stats.telegraph * 1.25 : this.stats.telegraph;
+    this.tele = { state: { cells, elapsed: 0, duration }, meshes };
+    this.face = faceAngle(Math.sign(target.c - this.c), Math.sign(target.r - this.r));
   }
 }

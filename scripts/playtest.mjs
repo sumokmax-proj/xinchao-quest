@@ -16,6 +16,7 @@
  *   --level 6          시작 레벨 (--stage와 함께)
  *   --campaign         이기면 다음 스테이지, 지면 같은 스테이지를 다시 (마지막 스테이지를 깨거나 --max-plays까지)
  *   --max-plays 20     --campaign에서 최대 몇 번 플레이할지 (기본 20)
+ *   --gallery          플레이하지 않고 모든 몬스터를 한 화면에 세워 스크린샷만 (모델 확인용)
  *
  * 처음 한 번은 브라우저 설치가 필요할 수 있다: npx playwright install chromium
  */
@@ -39,6 +40,7 @@ const START_STAGE = Number(opt('stage', 1));
 const START_LEVEL = opt('level', null);
 const CAMPAIGN = args.includes('--campaign');
 const MAX_PLAYS = Number(opt('max-plays', 20));
+const GALLERY = args.includes('--gallery');
 const STAGES = JSON.parse(readFileSync('src/data/stages.json', 'utf8'));
 /** --stage로 건너뛸 때 시작 레벨 추정 (캠페인 점검 결과로 맞춤) */
 const LEVEL_GUESS = [1, 3, 5, 7, 9, 11, 13];
@@ -91,13 +93,14 @@ function decide(s, rng) {
     return side === 0 ? 'ArrowLeft' : 'ArrowRight';
   }
   if (!s.player.ready) return null;
-  const danger = new Set(s.goblins.filter((g) => g.telegraph).map((g) => k(g.telegraph.c, g.telegraph.r)));
+  const danger = new Set(s.goblins.flatMap((g) => g.telegraph.map((t) => k(t.c, t.r))));
   // 예고가 끝나면 기록을 지워서, 같은 칸의 다음 예고는 새로 정함
   for (const key of [...dodgeChoice.keys()]) if (!danger.has(key.split('#')[0])) dodgeChoice.delete(key);
   const p = s.player;
   const here = k(p.c, p.r);
   if (danger.has(here) && willDodge(here + '#' + s.stats.hurt, rng)) {
-    const d = firstStep(s, p, () => true, danger);
+    // 위험 칸을 지나가도 되지만 멈추는 곳은 안전한 칸 (8칸 내려찍기는 두 칸 물러나야 함)
+    const d = firstStep(s, p, (n) => !danger.has(k(n.c, n.r)), new Set());
     return d ? d.key : null;
   }
   const targets = s.goblins.filter((g) => g.state === 'idle');
@@ -203,6 +206,17 @@ async function playOnce(context, url, run) {
     );
     await page.reload();
     await page.waitForFunction(() => window.__game !== undefined, null, { timeout: 30000 });
+  }
+  if (GALLERY) {
+    await page.evaluate(() => window.__game.debugGallery());
+    await page.waitForTimeout(1200);
+    await shot('gallery');
+    await page.evaluate(() => window.__game.togglePixel());
+    await page.evaluate(() => window.dispatchEvent(new Event('resize')));
+    await page.waitForTimeout(500);
+    await shot('gallery-smooth');
+    await page.close();
+    return { run, rows: [], errors, shots };
   }
   const before = (await snap(page)).profile;
   const webgl = !(await page.isVisible('#err'));

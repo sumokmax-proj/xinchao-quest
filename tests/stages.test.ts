@@ -23,10 +23,25 @@ describe('stages.json', () => {
     }
   });
   it('뒤 스테이지일수록 배율이 커짐', () => {
-    for (let i = 1; i < STAGES.length; i++) expect(STAGES[i].power).toBeGreaterThan(STAGES[i - 1].power);
+    for (let i = 1; i < STAGES.length; i++) {
+      expect(STAGES[i].power).toBeGreaterThan(STAGES[i - 1].power);
+      expect(STAGES[i].damage).toBeGreaterThanOrEqual(STAGES[i - 1].damage);
+    }
   });
   it('스테이지 주제마다 단어가 6개 이상 (2지선다 보기가 다양하게)', () => {
     STAGES.forEach((_, i) => expect(stageWords(words, STAGES, i).main.length).toBeGreaterThanOrEqual(6));
+  });
+  it('마지막 스테이지 마지막 웨이브에 지역 보스(고블린 왕)', () => {
+    const last = STAGES[STAGES.length - 1];
+    expect(last.waves[last.waves.length - 1].enemies).toContain('king');
+  });
+  it('스테이지마다 그 스테이지에서 처음 나오는 몬스터가 있음 (1스테이지 제외)', () => {
+    const seen = new Set<string>();
+    STAGES.forEach((st, i) => {
+      const kinds = new Set(st.waves.flatMap((w) => w.enemies));
+      if (i > 0) expect([...kinds].some((k) => !seen.has(k)), st.id).toBe(true);
+      kinds.forEach((k) => seen.add(k));
+    });
   });
   it('모든 단어 주제가 어느 스테이지엔가 나옴', () => {
     const topics = new Set(STAGES.flatMap((s) => s.topics));
@@ -93,9 +108,9 @@ describe('스테이지 해금', () => {
 
 describe('스테이지 단어', () => {
   const S: StageData[] = [
-    { id: 'a', name: 'A', map: 'm', topics: ['인사'], power: 1, waves: [] },
-    { id: 'b', name: 'B', map: 'm', topics: ['숫자'], power: 1, waves: [] },
-    { id: 'c', name: 'C', map: 'm', topics: [], power: 1, waves: [] },
+    { id: 'a', name: 'A', map: 'm', topics: ['인사'], power: 1, damage: 1, waves: [] },
+    { id: 'b', name: 'B', map: 'm', topics: ['숫자'], power: 1, damage: 1, waves: [] },
+    { id: 'c', name: 'C', map: 'm', topics: [], power: 1, damage: 1, waves: [] },
   ];
   const W = [
     { vi: 'xin chào', topic: '인사' },
@@ -118,6 +133,11 @@ describe('스테이지 단어', () => {
 });
 
 describe('적 배율', () => {
+  it('피해 배율을 따로 줄 수 있음', () => {
+    const s = scaleEnemy(CONFIG.enemies.goblin, 2, 1.5);
+    expect(s.hp).toBe(60);
+    expect(s.damage).toBe(12);
+  });
   it('HP·피해·EXP는 반올림, 골드는 500동 단위', () => {
     const s = scaleEnemy(CONFIG.enemies.goblin, 1.25);
     expect(s.hp).toBe(38);

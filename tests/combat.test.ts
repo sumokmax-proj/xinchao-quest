@@ -81,7 +81,7 @@ describe('경험치·레벨업', () => {
 });
 
 describe('빨간 예고', () => {
-  const t = { cell: { c: 3, r: 4 }, elapsed: 0.78, duration: CONFIG.enemies.goblin.telegraph };
+  const t = { cells: [{ c: 3, r: 4 }], elapsed: 0.78, duration: CONFIG.enemies.goblin.telegraph };
   it('예고 시간이 지나면 끝', () => {
     expect(telegraphDone(t)).toBe(true);
     expect(telegraphDone({ ...t, elapsed: 0.5 })).toBe(false);

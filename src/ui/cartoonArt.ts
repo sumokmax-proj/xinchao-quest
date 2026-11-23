@@ -129,7 +129,7 @@ export const ART: Record<string, string> = {
   <path d="M196 92h22l-3 18h-16z" fill="#fff" ${S}/><path d="M199 92h16v8h-16z" fill="#6a3a1a"/>
   <path d="M200 84q4-8 0-14M210 84q4-8 0-14" ${S} fill="none" opacity=".6"/>
   ${hero(100, 172, { tie: true, mood: 'happy' })}
-  <rect x="122" y="56" width="150" height="26" rx="13" fill="#fff" ${S}/><text x="132" y="74" font-size="12" font-weight="700" fill="${INK}">Cho tôi một cà phê sữa đá!</text>`,
+  <rect x="112" y="54" width="184" height="28" rx="14" fill="#fff" ${S}/><text x="204" y="73" text-anchor="middle" font-size="12" font-weight="700" fill="${INK}">Cho tôi một cà phê sữa đá!</text>`,
   /** 처음으로 한 번에 통했다 */
   smile: `${sky('#fbe8c8', '#f6d29a')}
   ${ground('#c8a070', 150)}

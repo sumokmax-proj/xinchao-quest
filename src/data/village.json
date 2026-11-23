@@ -1,6 +1,6 @@
 {
   "name": "씬짜오 마을",
-  "legend": { ".": "걸을 수 있음", "T": "나무", "C": "성", "A": "반미 가게", "B": "대장간", "S": "서당", "K": "카페", "O": "분수", "G": "성문" },
+  "legend": { ".": "걸을 수 있음", "T": "나무", "C": "성", "A": "반미 가게", "M": "대장간", "H": "서당", "K": "카페", "O": "분수", "G": "성문" },
   "theme": "village",
   "rows": [
     "TTTTTTTTTTT",
@@ -8,13 +8,13 @@
     "T.CCCCCCC.T",
     "T.........T",
     "T.........T",
-    "TAA.....BBT",
-    "TAA.....BBT",
+    "TAA.....MMT",
+    "TAA.....MMT",
     "T.........T",
     "T....O....T",
     "T.........T",
-    "TSS.....KKT",
-    "TSS.....KKT",
+    "THH.....KKT",
+    "THH.....KKT",
     "T.........T",
     "T.........T",
     "T.........T",
@@ -26,8 +26,8 @@
   "buildings": [
     { "id": "castle", "tile": "C", "name": "성", "need": 0 },
     { "id": "bakery", "tile": "A", "name": "반미 가게", "need": 0 },
-    { "id": "smith", "tile": "B", "name": "대장간", "need": 8 },
-    { "id": "school", "tile": "S", "name": "서당", "need": 18 },
+    { "id": "smith", "tile": "M", "name": "대장간", "need": 8 },
+    { "id": "school", "tile": "H", "name": "서당", "need": 18 },
     { "id": "cafe", "tile": "K", "name": "카페", "need": 30 },
     { "id": "fountain", "tile": "O", "name": "분수 광장", "need": 45 },
     { "id": "festival", "tile": "", "name": "마을 축제 (등불)", "need": 65 }

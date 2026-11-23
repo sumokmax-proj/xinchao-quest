@@ -2,6 +2,7 @@ import { CONFIG } from '../config';
 import type { HeroStats } from '../combat/rules';
 import { easeInOut, lerp, lerpAngle } from '../core/math';
 import type { HeroModel } from '../render/models';
+import type { RiggedModel } from '../render/Rigged';
 import type { Cell, Grid } from '../world/Grid';
 
 /** 검사. 칸 위치(c, r)는 즉시 바뀌고, 화면 위치(x, z)는 0.15초 동안 따라간다 */
@@ -17,6 +18,10 @@ export class Player {
   attackCooldown = 0;
   private swingT = 1;
   private lungeT = 1;
+  /** KayKit 검사 모델 (불러오면 임시 도형 대신 보인다) */
+  private rig: RiggedModel | null = null;
+  private pose: 'live' | 'hit' | 'dead' | 'cheer' = 'live';
+  private poseT = 0;
   stats: HeroStats & { gold: number } = Player.freshStats();
 
   constructor(
@@ -40,6 +45,8 @@ export class Player {
     this.swingT = 1;
     this.lungeT = 1;
     this.stats = { ...stats };
+    this.pose = 'live';
+    this.rig?.play('Idle', { fade: 0 });
     this.model.group.position.set(this.x, 0, this.z);
     this.model.group.rotation.y = Math.PI;
   }
@@ -62,6 +69,33 @@ export class Player {
 
   swing(): void {
     this.swingT = 0;
+    // 베기 동작을 공격 간격 안에 끝낸다 (손맛 기준값은 그대로, 보이는 동작만 맞춤)
+    this.rig?.play(Math.random() < 0.5 ? '1H_Melee_Attack_Slice_Horizontal' : '1H_Melee_Attack_Chop', { once: true, seconds: CONFIG.player.attackCooldown, fade: 0.05, restart: true });
+  }
+
+  /** glTF 모델을 붙이고 임시 도형은 숨긴다 (베기 궤적은 그대로 쓴다) */
+  attachRig(rig: RiggedModel): void {
+    this.rig = rig;
+    for (const child of this.model.group.children) if (child !== this.model.arc) child.visible = false;
+    this.model.group.add(rig.root);
+    rig.play('Idle', { fade: 0 });
+  }
+
+  hurt(): void {
+    if (this.pose === 'dead') return;
+    this.pose = 'hit';
+    this.poseT = 0.28;
+    this.rig?.play('Hit_A', { once: true, seconds: 0.28, fade: 0.04, restart: true });
+  }
+
+  die(): void {
+    this.pose = 'dead';
+    this.rig?.play('Death_A', { once: true, fade: 0.1 });
+  }
+
+  cheer(): void {
+    this.pose = 'cheer';
+    this.rig?.play('Cheer', { fade: 0.2 });
   }
 
   /** 나무·바위에 툭 부딪힘 */
@@ -101,7 +135,19 @@ export class Player {
       lx += Math.sin(this.face) * s;
       lz += Math.cos(this.face) * s;
     }
-    const bob = this.moveT < 1 ? Math.sin(this.moveT * Math.PI) * 0.09 : Math.sin(nowMs / 300) * 0.015;
+    if (this.rig) {
+      if (this.pose === 'hit') {
+        this.poseT -= dt;
+        if (this.poseT <= 0) this.pose = 'live';
+      }
+      const attacking = this.swingT < 1 || (this.rig.playing?.startsWith('1H_') && !this.rig.finished);
+      if (this.pose === 'live' && !attacking) {
+        if (this.moveT < 1) this.rig.play('Walking_A', { speed: 2.2, fade: 0.08 });
+        else if (this.rig.playing !== 'Idle' && (this.rig.playing === 'Walking_A' || this.rig.finished)) this.rig.play('Idle', { fade: 0.15 });
+      }
+      this.rig.update(dt);
+    }
+    const bob = this.rig ? 0 : this.moveT < 1 ? Math.sin(this.moveT * Math.PI) * 0.09 : Math.sin(nowMs / 300) * 0.015;
     m.group.position.set(this.x + lx, bob, this.z + lz);
     m.group.rotation.y = lerpAngle(m.group.rotation.y, this.face, Math.min(1, dt * 18));
   }

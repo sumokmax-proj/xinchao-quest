@@ -90,3 +90,11 @@ describe('마을 사람 질문', () => {
     expect(questionOptions(q, seq(0.9))).toEqual({ options: [q.wrong, q.right], answer: 1 });
   });
 });
+
+describe('마을 맵 글자', () => {
+  it('필드 지형 글자(T 빼고 R·B·W·P·S·X·F)를 건물에 쓰지 않음 (쓰면 바위·덤불·좌판으로 그려짐)', () => {
+    const fieldOnly = ['R', 'B', 'W', 'P', 'S', 'X', 'F'];
+    V.buildings.forEach((b) => expect(fieldOnly).not.toContain(b.tile));
+    V.rows.forEach((row) => fieldOnly.forEach((ch) => expect(row).not.toContain(ch)));
+  });
+});

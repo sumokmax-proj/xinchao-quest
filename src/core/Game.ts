@@ -27,6 +27,7 @@ import { ShopView } from '../ui/ShopView';
 import { Cartoon, type Panel } from '../ui/Cartoon';
 import { Dialog } from '../ui/Dialog';
 import { buildVillageProps, makeNpc } from '../render/village';
+import { loadRigged, type RiggedModel } from '../render/Rigged';
 import { QuizBubble } from '../ui/QuizBubble';
 import { banner, toast } from '../ui/Toasts';
 import { CameraRig } from '../world/CameraRig';
@@ -48,6 +49,9 @@ const SHOP = shopJson as ShopItem[];
 const VILLAGE = villageJson as VillageData;
 const STORY = storyJson as Record<string, Panel[]>;
 const VILLAGE_MAP = '__village';
+/** KayKit 캐릭터로 보여줄 NPC (look → 파일) */
+const NPC_RIGS: Record<string, string> = { smith: 'npc-barbarian.glb', teacher: 'npc-mage.glb', guard: 'npc-rogue.glb' };
+const NPC_HIDE = ['1H_Axe_Offhand', '2H_Axe', 'Barbarian_Round_Shield', 'Mug', '1H_Wand', '2H_Staff', 'Spellbook_open', '1H_Crossbow', '2H_Crossbow', 'Knife', 'Knife_Offhand', 'Throwable'];
 
 /** debugSnapshot()이 돌려주는 형식 */
 export interface DebugSnapshot {
@@ -108,7 +112,7 @@ export class Game {
   private mode: 'field' | 'village' = 'field';
   private readonly cartoon = new Cartoon();
   private readonly dialog = new Dialog();
-  private npcs: { npc: Npc; group: THREE.Group; label: HTMLDivElement }[] = [];
+  private npcs: { npc: Npc; group: THREE.Group; label: HTMLDivElement; rig: RiggedModel | null }[] = [];
   private askedThisVisit = new Set<string>(); // 이번 방문에 질문을 한 NPC
   private talkAnswer: 0 | 1 | null = null; // 마을 사람 질문의 정답 쪽 (자동 플레이 점검용)
   private readonly select = new StageSelect((i) => this.play(i));
@@ -130,6 +134,13 @@ export class Game {
     this.stageIndex = lastUnlocked(STAGES, this.save.stages);
     this.loadStage(this.stageIndex);
     this.player = new Player(this.grid, hero);
+    // KayKit 검사 모델 (CC0). 내려받는 동안은 임시 도형으로 보인다
+    void loadRigged('hero.glb', {
+      height: 1.35,
+      hide: ['1H_Sword_Offhand', 'Rectangle_Shield', 'Round_Shield', 'Spike_Shield', '2H_Sword', 'Badge_Shield'],
+    }).then((rig) => {
+      if (rig) this.player.attachRig(rig);
+    });
     if (this.seen('village')) this.loadVillage();
     this.bubble = new QuizBubble((side) => this.answer(side));
     setSoundEnabled(this.save.sound);
@@ -259,7 +270,7 @@ export class Game {
   }
 
   /** 마을 맵·건물·NPC를 만든다 (복구 상태는 지금 도감 수 기준) */
-  private loadVillage(): void {
+  private loadVillage(collectedOverride?: number): void {
     this.mode = 'village';
     this.clearNpcs();
     if (this.mapRoot) disposeMap(this.scene, this.mapRoot);
@@ -269,7 +280,7 @@ export class Game {
     const theme = getTheme(VILLAGE.theme);
     applyTheme(this.scene, theme);
     this.mapRoot = buildMap(this.scene, this.grid, theme);
-    const collected = dexProgress(this.save.dex, WORDS).collected;
+    const collected = collectedOverride ?? dexProgress(this.save.dex, WORDS).collected;
     this.mapRoot.add(buildVillageProps(this.grid, VILLAGE, builtSet(VILLAGE.buildings, collected)));
     for (const npc of activeNpcs(VILLAGE, collected)) {
       const m = makeNpc(npc.look);
@@ -279,7 +290,19 @@ export class Game {
       label.className = 'npcname';
       label.textContent = npc.name;
       el('labels').appendChild(label);
-      this.npcs.push({ npc, group: m.group, label });
+      const entry = { npc, group: m.group, label, rig: null as RiggedModel | null };
+      this.npcs.push(entry);
+      // KayKit 캐릭터가 있는 NPC는 불러오면 임시 도형과 바꾼다
+      const file = NPC_RIGS[npc.look];
+      if (file)
+        void loadRigged(file, { height: 1.25, hide: NPC_HIDE }).then((rig) => {
+          if (!rig || !this.npcs.includes(entry)) return;
+          entry.group.children.forEach((c) => (c.visible = false));
+          entry.group.add(rig.root);
+          rig.play('Idle', { fade: 0 });
+          rig.mixer.setTime(npc.at.c * 0.37); // 다 같이 똑같이 움직이지 않게
+          entry.rig = rig;
+        });
     }
     if (this.player) this.player.grid = this.grid;
   }
@@ -352,6 +375,14 @@ export class Game {
 
   private talk(npc: Npc): void {
     sfx.bump();
+    const n = this.npcs.find((x) => x.npc === npc);
+    if (n) {
+      n.group.rotation.y = Math.atan2(this.player.x - n.group.position.x, this.player.z - n.group.position.z);
+      if (n.rig) {
+        n.rig.play('Interact', { once: true, fade: 0.1, restart: true });
+        setTimeout(() => n.rig?.play('Idle', { fade: 0.3 }), 1200);
+      }
+    }
     const collected = dexProgress(this.save.dex, WORDS).collected;
     switch (npc.role) {
       case 'lord': {
@@ -694,6 +725,8 @@ export class Game {
     const p = this.player;
     const damage = guardedDamage(raw, this.fx.guard);
     p.stats.hp = applyDamage(p.stats.hp, damage);
+    if (p.stats.hp > 0) p.hurt();
+    else p.die();
     this.hurtCount++;
     floatText(this.cam.camera, p.x, 1.3, p.z, '-' + damage, 'hurtn');
     sfx.hurt();
@@ -920,11 +953,15 @@ export class Game {
           else go();
         });
       } else if (ev?.kind === 'clear') {
+        this.player.cheer();
         this.timers.after(CONFIG.wave.clearDelay, () => this.finish(true));
       }
     }
 
-    for (const n of this.npcs) n.group.position.y = Math.abs(Math.sin(nowMs / 400 + n.npc.at.c)) * 0.03;
+    for (const n of this.npcs) {
+      if (n.rig) n.rig.update(dt);
+      else n.group.position.y = Math.abs(Math.sin(nowMs / 400 + n.npc.at.c)) * 0.03;
+    }
     this.particles.update(dt);
     this.cam.update(dt, p);
   }
@@ -950,6 +987,16 @@ export class Game {
       this.bubble.position(s.x, s.y, screenW);
       this.bubble.setTimeLeft(this.quiz.timeLeft / this.quiz.limit);
     }
+  }
+
+  /** 개발용: 다 지어진 마을을 위쪽(성)부터 보여준다 (npm run playtest -- --gallery) */
+  debugVillage(row: number): void {
+    hideStart();
+    if (this.mapName !== VILLAGE_MAP) this.loadVillage(999);
+    this.mode = 'village';
+    this.placeInVillage();
+    this.player.reset({ c: 5, r: row }, { ...this.player.stats });
+    this.cam.snapTo(this.player.x, this.player.z);
   }
 
   /** 개발용: 모든 몬스터를 플레이어 앞에 줄 세워 멈춰 둔다 (모델 확인 스크린샷용, npm run playtest -- --gallery) */

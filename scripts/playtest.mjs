@@ -349,6 +349,11 @@ async function playOnce(context, url, run) {
     await page.evaluate(() => window.dispatchEvent(new Event('resize')));
     await page.waitForTimeout(500);
     await shot('gallery-smooth');
+    for (const row of [7, 14]) {
+      await page.evaluate((r) => window.__game.debugVillage(r), row);
+      await page.waitForTimeout(2500);
+      await shot('village-full-r' + row);
+    }
     await page.close();
     return { run, rows: [], errors, shots };
   }

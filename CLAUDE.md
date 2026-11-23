@@ -5,7 +5,7 @@
 - 기획: `docs/game-design.md`
 - 지금까지의 결정과 남은 질문: `docs/decisions-log.md`
 - 레퍼런스 조사: `docs/reference-games-research.md`
-- 스토리·컨셉 구상 (아직 개발하지 않음): `docs/story-concept.md`
+- 스토리·컨셉 구상: `docs/story-concept.md` (2026-11-24 반영 허락, 반영 방식은 기획서 "게임 구성")
 - 손맛의 기준: `prototype/action-3d.html` (한 파일 Three.js 프로토타입, 실제로 재밌다고 검증됨)
 
 ## 개발자 정보

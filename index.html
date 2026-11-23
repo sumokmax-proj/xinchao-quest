@@ -53,8 +53,19 @@
   <section class="overlay" id="startOv">
     <h1>씬짜오 퀘스트 3D</h1>
     <p class="sub">마을 앞 풀밭 · <span id="version"></span></p>
+    <p class="profile" id="startProfile" hidden></p>
     <button type="button" class="btn" id="btnStart">모험 시작</button>
+    <button type="button" class="btn ghost" id="btnBook">단어장 <small id="bookCount"></small><i class="badge" id="bookBadge" hidden></i></button>
     <p class="note" id="startNote"></p>
+  </section>
+
+  <section class="overlay book" id="bookOv" hidden>
+    <div class="tabs" role="tablist">
+      <button type="button" id="tabDex" class="on">도감 <b id="tabDexN"></b></button>
+      <button type="button" id="tabWrong">오답노트 <b id="tabWrongN"></b></button>
+    </div>
+    <div class="booklist" id="bookList"></div>
+    <button type="button" class="btn ghost" id="btnBookClose">닫기</button>
   </section>
 
   <section class="overlay" id="endOv" hidden>
@@ -65,7 +76,10 @@
       <div><h3 class="listhead good" id="endLearnedHead"></h3><ul class="wrongs learned" id="endLearned"></ul></div>
       <div><h3 class="listhead" id="endWrongsHead"></h3><ul class="wrongs" id="endWrongs"></ul></div>
     </div>
-    <button type="button" class="btn" id="btnRetry">다시 하기</button>
+    <div class="btnrow">
+      <button type="button" class="btn ghost" id="btnBook2">단어장</button>
+      <button type="button" class="btn" id="btnRetry">다시 하기</button>
+    </div>
   </section>
 
   <div class="err" id="err" hidden><p>3D 화면을 불러오지 못했어요. 이 브라우저에서 WebGL이 꺼져 있는 것 같아요. 다른 브라우저에서 다시 열어 주세요.</p></div>

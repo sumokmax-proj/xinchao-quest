@@ -85,3 +85,52 @@ export function sanitizeDex(raw: unknown): Dex {
   }
   return out;
 }
+
+/* ---------- 단어장 화면용 정리 ---------- */
+
+export interface BookEntry {
+  vi: string;
+  ko: string;
+  collected: boolean;
+  right: number;
+  wrong: number;
+}
+
+export interface BookTopic {
+  topic: string;
+  collected: number;
+  total: number;
+  entries: BookEntry[];
+}
+
+export interface WrongEntry {
+  vi: string;
+  ko: string;
+  score: number; // 1 = 방금 틀림. clearAt이 되면 오답노트에서 빠진다
+}
+
+/** 단어 도감: 주제별로 묶고 (단어 파일 순서 유지), 주제마다 모은 수 */
+export function buildDex(words: readonly { vi: string; ko: string; topic?: string }[], dex: Dex): BookTopic[] {
+  const topics = new Map<string, BookTopic>();
+  for (const w of words) {
+    const name = w.topic ?? '기타';
+    let t = topics.get(name);
+    if (!t) topics.set(name, (t = { topic: name, collected: 0, total: 0, entries: [] }));
+    const e = dex[w.vi];
+    const collected = isCollected(dex, w.vi);
+    t.entries.push({ vi: w.vi, ko: w.ko, collected, right: e?.right ?? 0, wrong: e?.wrong ?? 0 });
+    t.total++;
+    if (collected) t.collected++;
+  }
+  return [...topics.values()];
+}
+
+/** 오답노트 목록: 점수가 낮은(최근에 틀린) 단어부터. 단어 파일에 없는 단어는 뺀다 */
+export function buildWrongList(words: readonly { vi: string; ko: string }[], note: Record<string, number>): WrongEntry[] {
+  const out: WrongEntry[] = [];
+  for (const [vi, score] of Object.entries(note)) {
+    const w = words.find((x) => x.vi === vi);
+    if (w) out.push({ vi, ko: w.ko, score });
+  }
+  return out.sort((a, b) => a.score - b.score);
+}

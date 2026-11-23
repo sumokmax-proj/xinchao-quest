@@ -33,7 +33,19 @@ function fillWords(id: string, words: Map<string, string>, empty: string): void 
   }
 }
 
-export const isOverlayOpen = (): boolean => !el('startOv').hidden || !el('endOv').hidden;
+export const isOverlayOpen = (): boolean => !el('startOv').hidden || !el('endOv').hidden || !el('bookOv').hidden;
+
+/** 시작 화면: 저장된 진행 (처음 하는 사람에게는 안 보임) */
+export function setStartProfile(p: { level: number; gold: number; runs: number }, collected: number, total: number, wrongCount: number, goldText: string): void {
+  const box = el('startProfile');
+  box.hidden = p.runs === 0;
+  box.innerHTML = `<b>Lv ${p.level}</b> · <span class="g"></span>`;
+  (box.querySelector('.g') as HTMLElement).textContent = goldText;
+  el('bookCount').textContent = `${collected} / ${total}`;
+  const badge = el('bookBadge');
+  badge.hidden = wrongCount === 0;
+  badge.textContent = String(wrongCount);
+}
 
 export function setStartNote(text: string): void {
   el('startNote').textContent = text;

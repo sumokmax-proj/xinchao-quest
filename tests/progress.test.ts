@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { gainExp } from '../src/combat/rules';
-import { dexProgress, freshProfile, heroStatsFor, isCollected, recordAnswer, sanitizeProfile } from '../src/core/Progress';
+import { buildDex, buildWrongList, dexProgress, freshProfile, heroStatsFor, isCollected, recordAnswer, sanitizeProfile } from '../src/core/Progress';
 import { clearProgress, defaultSave, parseSave } from '../src/core/Save';
 
 describe('레벨에서 능력치 계산', () => {
@@ -82,5 +82,26 @@ describe('저장 읽기', () => {
     const c = clearProgress(s);
     expect(c.profile.level).toBe(1);
     expect(c.sound).toBe(false);
+  });
+});
+
+describe('단어장 정리', () => {
+  const words = [
+    { vi: 'tôi', ko: '나', topic: '자기소개' },
+    { vi: 'bạn', ko: '친구', topic: '자기소개' },
+    { vi: 'một', ko: '하나', topic: '숫자' },
+  ];
+  it('주제별로 묶고 모은 수를 셈', () => {
+    const { dex } = recordAnswer({}, 'bạn', true, 1);
+    const book = buildDex(words, dex);
+    expect(book.map((t) => t.topic)).toEqual(['자기소개', '숫자']);
+    expect(book[0]).toMatchObject({ collected: 1, total: 2 });
+    expect(book[0].entries[1]).toMatchObject({ vi: 'bạn', collected: true, right: 1 });
+    expect(book[1]).toMatchObject({ collected: 0, total: 1 });
+  });
+  it('오답노트는 최근에 틀린(점수 낮은) 단어부터, 없는 단어는 뺌', () => {
+    const list = buildWrongList(words, { tôi: 2, một: 1, 'không có': 1 });
+    expect(list.map((w) => w.vi)).toEqual(['một', 'tôi']);
+    expect(list[0].ko).toBe('하나');
   });
 });

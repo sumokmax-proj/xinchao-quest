@@ -47,6 +47,8 @@ function boot(): void {
   });
   el('btnStart').addEventListener('click', () => game.start());
   el('btnRetry').addEventListener('click', () => game.retry());
+  el('btnBook').addEventListener('click', () => game.openBook());
+  el('btnBook2').addEventListener('click', () => game.openBook());
   el('btnPixel').addEventListener('click', () => {
     game.togglePixel();
     resize();

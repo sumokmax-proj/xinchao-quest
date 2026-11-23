@@ -187,6 +187,15 @@ async function playOnce(context, url, run) {
   }
   await page.waitForTimeout(1500);
   await shot('end');
+  if (await page.isVisible('#btnBook2')) {
+    await page.click('#btnBook2');
+    await page.waitForTimeout(300);
+    await page.click('#tabDex');
+    await shot('book-dex');
+    await page.click('#tabWrong');
+    await shot('book-wrong');
+    await page.click('#btnBookClose');
+  }
   const final = await page.evaluate(() => window.__game.debugSnapshot());
   await page.close();
   return {

@@ -15,7 +15,8 @@ import { buildMap, createScene } from '../render/scene';
 import { el, esc, fmtDong } from '../ui/dom';
 import { Hud } from '../ui/Hud';
 import { floatText, toScreen } from '../ui/Labels';
-import { hideEnd, hideStart, setStartNote, showEnd, type EndSummary } from '../ui/Overlays';
+import { hideEnd, hideStart, setStartNote, setStartProfile, showEnd, type EndSummary } from '../ui/Overlays';
+import { WordBook } from '../ui/WordBook';
 import { QuizBubble } from '../ui/QuizBubble';
 import { banner, toast } from '../ui/Toasts';
 import { CameraRig } from '../world/CameraRig';
@@ -63,6 +64,7 @@ export class Game {
   private readonly player: Player;
   private readonly waves = new WaveProgress(WAVES.length);
   private readonly bubble: QuizBubble;
+  private readonly book = new WordBook();
   private save: SaveData = loadSave();
   private goblins: Goblin[] = [];
   private quiz: QuizRun | null = null;
@@ -172,6 +174,12 @@ export class Game {
   private updateStartNote(): void {
     const wc = Object.keys(this.save.wrong).length;
     setStartNote(wc ? `지난번에 틀린 단어 ${wc}개가 더 자주 나와요.` : '');
+    const { collected, total } = dexProgress(this.save.dex, WORDS);
+    setStartProfile(this.save.profile, collected, total, wc, fmtDong(this.save.profile.gold));
+  }
+
+  openBook(): void {
+    this.book.open(WORDS, this.save.dex, this.save.wrong);
   }
 
   /* ---------- 입력 ---------- */

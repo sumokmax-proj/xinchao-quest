@@ -1,15 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import waves from '../src/data/waves.json';
-import { CONFIG } from '../src/config';
 import { Timers } from '../src/core/Timers';
 import { WaveProgress } from '../src/core/Waves';
 
 describe('웨이브 진행', () => {
-  it('waves.json: 3웨이브, 마지막에 대장', () => {
-    expect(waves.length).toBe(3);
-    expect(waves[2].enemies).toContain('boss');
-    waves.forEach((w) => w.enemies.forEach((k) => expect(Object.keys(CONFIG.enemies)).toContain(k)));
-  });
   it('적이 남아 있으면 아무 일 없음', () => {
     expect(new WaveProgress(3).check(2)).toBeNull();
   });

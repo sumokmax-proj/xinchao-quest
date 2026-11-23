@@ -1,7 +1,7 @@
 /**
  * 자동 플레이 점검 (npm run playtest)
  *
- * 개발 서버를 띄우고, 봇이 게임을 처음부터 끝까지 플레이한다.
+ * 개발 서버를 띄우고, 봇이 게임을 플레이한다 (기본: 1스테이지 한 번, --campaign: 끝까지).
  * 결과(클리어 여부, 걸린 시간, 맞은 횟수, 퀴즈 정답률, 오류, 프레임)와 장면별 스크린샷을
  * playtest-output/<날짜시간>/ 에 남긴다. Claude가 스스로 점검할 때 쓰는 도구.
  *
@@ -12,10 +12,14 @@
  *   --timeout 360      한 판 최대 시간(초). 넘기면 "시간 초과"로 기록 (기본 360)
  *   --headed           브라우저 창을 띄워서 보기
  *   --keep-save        판마다 저장을 지우지 않고 이어서 플레이 (진행 저장 확인용. 기본은 매 판 새로 시작)
+ *   --stage 3          3스테이지부터 (앞 스테이지는 깬 것으로, 레벨은 --level 또는 스테이지에 맞는 추정값)
+ *   --level 6          시작 레벨 (--stage와 함께)
+ *   --campaign         이기면 다음 스테이지, 지면 같은 스테이지를 다시 (마지막 스테이지를 깨거나 --max-plays까지)
+ *   --max-plays 20     --campaign에서 최대 몇 번 플레이할지 (기본 20)
  *
  * 처음 한 번은 브라우저 설치가 필요할 수 있다: npx playwright install chromium
  */
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { createServer } from 'vite';
 import { chromium } from 'playwright';
@@ -31,6 +35,13 @@ const DODGE = Number(opt('dodge', 0.7));
 const TIMEOUT = Number(opt('timeout', 360)) * 1000;
 const HEADED = args.includes('--headed');
 const KEEP_SAVE = args.includes('--keep-save');
+const START_STAGE = Number(opt('stage', 1));
+const START_LEVEL = opt('level', null);
+const CAMPAIGN = args.includes('--campaign');
+const MAX_PLAYS = Number(opt('max-plays', 20));
+const STAGES = JSON.parse(readFileSync('src/data/stages.json', 'utf8'));
+/** --stage로 건너뛸 때 시작 레벨 추정 (캠페인 점검 결과로 맞춤) */
+const LEVEL_GUESS = [1, 3, 5, 7, 9, 11, 13];
 
 const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
 const OUT = join('playtest-output', stamp);
@@ -113,6 +124,57 @@ async function launch() {
   }
 }
 
+const snap = (page) => page.evaluate(() => window.__game.debugSnapshot());
+
+/** 스테이지 한 번 플레이. 결과 화면이 뜰 때까지 (또는 시간 초과) */
+async function playStage(page, rng, shot, flags) {
+  const t0 = Date.now();
+  let s = await snap(page);
+  const stage = s.stage;
+  let lastWave = 0;
+  let minHp = Infinity;
+  if (!flags.stageShots.has(stage.index)) await shot(`s${stage.index + 1}-wave1`);
+  while (Date.now() - t0 < TIMEOUT) {
+    s = await snap(page);
+    minHp = Math.min(minHp, s.player.hp);
+    if (s.result) break;
+    if (s.quiz && !flags.quizShot) {
+      await shot('first-quiz');
+      flags.quizShot = true;
+    }
+    if (s.quiz?.kind === 'tone' && !flags.toneShot && s.quiz.acceptsInput) {
+      await shot('tone-quiz');
+      flags.toneShot = true;
+    }
+    if (s.wave.index !== lastWave) {
+      lastWave = s.wave.index;
+      if (!flags.stageShots.has(stage.index) && lastWave === s.wave.total - 1) {
+        await page.waitForTimeout(600);
+        await shot(`s${stage.index + 1}-wave${lastWave + 1}`);
+      }
+    }
+    const key = decide(s, rng);
+    if (key) await page.keyboard.press(key);
+    await page.waitForTimeout(60);
+  }
+  await page.waitForTimeout(1500);
+  const final = await snap(page);
+  if (!flags.stageShots.has(stage.index) || final.result !== 'win') await shot(`s${stage.index + 1}-end-${final.result ?? 'timeout'}`);
+  flags.stageShots.add(stage.index);
+  return {
+    stage: stage.index + 1,
+    result: final.result ?? 'timeout',
+    seconds: Math.round((Date.now() - t0) / 1000),
+    waveReached: `${final.wave.index + 1} / ${final.wave.total}`,
+    level: final.player.level,
+    kills: final.stats.kills,
+    quiz: `${final.stats.correct} / ${final.stats.quiz}`,
+    learned: final.stats.learned,
+    hurt: final.stats.hurt,
+    minHpRatio: Math.round((Math.max(0, minHp) / final.player.maxHp) * 100) + '%',
+  };
+}
+
 async function playOnce(context, url, run) {
   const page = await context.newPage();
   const errors = [];
@@ -128,28 +190,41 @@ async function playOnce(context, url, run) {
   await page.goto(url);
   await page.waitForFunction(() => window.__game !== undefined, null, { timeout: 30000 });
   if (!KEEP_SAVE || run === 1) {
-    await page.evaluate(() => {
-      try { localStorage.clear(); } catch {}
-    });
+    const level = Number(START_LEVEL ?? LEVEL_GUESS[START_STAGE - 1] ?? 1);
+    const stages = Object.fromEntries(STAGES.slice(0, START_STAGE - 1).map((st) => [st.id, { clears: 1, best: 0 }]));
+    await page.evaluate(
+      ({ level, stages, skip }) => {
+        try {
+          localStorage.clear();
+          if (skip) localStorage.setItem('xinchao-3d-v1', JSON.stringify({ answeredQuiz: true, stages, profile: { level, exp: 0, gold: 0, runs: 1 } }));
+        } catch {}
+      },
+      { level, stages, skip: START_STAGE > 1 },
+    );
     await page.reload();
     await page.waitForFunction(() => window.__game !== undefined, null, { timeout: 30000 });
   }
-  const before = await page.evaluate(() => window.__game.debugSnapshot().profile);
+  const before = (await snap(page)).profile;
   const webgl = !(await page.isVisible('#err'));
   await shot('start');
   if (!webgl) {
     await page.close();
-    return { run, result: 'webgl-error', errors, shots };
+    return { run, rows: [{ result: 'webgl-error' }], errors, shots };
   }
   await page.click('#btnStart');
-  await page.waitForTimeout(1500);
-  await shot('wave1');
+  await page.waitForTimeout(300);
+  if (await page.isVisible('#stageOv')) {
+    await shot('stage-select');
+    const cards = page.locator('#stageList .stage:not(.locked)');
+    const count = await cards.count();
+    await cards.nth(KEEP_SAVE && run > 1 ? count - 1 : Math.min(START_STAGE, count) - 1).click();
+  }
+  await page.waitForTimeout(1200);
 
   // 프레임 측정 (2초)
   const fps = await page.evaluate(
     () => new Promise((res) => { let n = 0; const t0 = performance.now(); const f = () => { n++; if (performance.now() - t0 < 2000) requestAnimationFrame(f); else res(Math.round(n / 2)); }; requestAnimationFrame(f); }),
   );
-
   const gpu = await page.evaluate(() => {
     try {
       const gl = document.createElement('canvas').getContext('webgl2');
@@ -157,36 +232,21 @@ async function playOnce(context, url, run) {
       return String(gl.getParameter(ext ? ext.UNMASKED_RENDERER_WEBGL : gl.RENDERER));
     } catch { return '?'; }
   });
+
   const rng = seeded(1234 + run);
-  const t0 = Date.now();
-  let lastWave = 0;
-  let quizShot = false;
-  let toneShot = false;
-  let minHp = Infinity;
-  let s;
-  while (Date.now() - t0 < TIMEOUT) {
-    s = await page.evaluate(() => window.__game.debugSnapshot());
-    minHp = Math.min(minHp, s.player.hp);
-    if (s.result) break;
-    if (s.quiz && !quizShot) {
-      await shot('first-quiz');
-      quizShot = true;
-    }
-    if (s.quiz?.kind === 'tone' && !toneShot && s.quiz.acceptsInput) {
-      await shot('tone-quiz');
-      toneShot = true;
-    }
-    if (s.wave.index !== lastWave) {
-      lastWave = s.wave.index;
-      await page.waitForTimeout(600);
-      await shot('wave' + (lastWave + 1));
-    }
-    const key = decide(s, rng);
-    if (key) await page.keyboard.press(key);
-    await page.waitForTimeout(60);
+  const flags = { quizShot: false, toneShot: false, stageShots: new Set() };
+  const rows = [];
+  const tStart = Date.now();
+  for (let n = 0; n < (CAMPAIGN ? MAX_PLAYS : 1); n++) {
+    const row = await playStage(page, rng, shot, flags);
+    rows.push(row);
+    console.log(`  스테이지 ${row.stage}: ${label[row.result] ?? row.result}, ${row.seconds}초, 웨이브 ${row.waveReached}, Lv ${row.level}, 맞음 ${row.hurt}회`);
+    if (!CAMPAIGN || row.result === 'timeout') break;
+    if (row.result === 'win' && row.stage === STAGES.length) break;
+    await page.click('#btnRetry');
+    await page.waitForTimeout(1200);
   }
-  await page.waitForTimeout(1500);
-  await shot('end');
+  const totalSeconds = Math.round((Date.now() - tStart) / 1000);
   if (await page.isVisible('#btnBook2')) {
     await page.click('#btnBook2');
     await page.waitForTimeout(300);
@@ -196,29 +256,18 @@ async function playOnce(context, url, run) {
     await shot('book-wrong');
     await page.click('#btnBookClose');
   }
-  const final = await page.evaluate(() => window.__game.debugSnapshot());
+  if (CAMPAIGN && (await page.isVisible('#btnMenu'))) {
+    await page.click('#btnMenu');
+    await page.click('#btnStart');
+    await page.waitForTimeout(300);
+    await shot('stage-select-after');
+  }
+  const final = await snap(page);
   await page.close();
-  return {
-    run,
-    result: final.result ?? 'timeout',
-    seconds: Math.round((Date.now() - t0) / 1000),
-    waveReached: `${final.wave.index + 1} / ${final.wave.total}`,
-    level: final.player.level,
-    gold: final.player.gold,
-    kills: final.stats.kills,
-    quiz: `${final.stats.correct} / ${final.stats.quiz}`,
-    learned: final.stats.learned,
-    profileBefore: before,
-    profileAfter: final.profile,
-    hurt: final.stats.hurt,
-    minHpRatio: Math.round((Math.max(0, minHp) / final.player.maxHp) * 100) + '%',
-    fps,
-    gpu,
-    errors,
-    shots,
-  };
+  return { run, rows, totalSeconds, profileBefore: before, profileAfter: final.profile, fps, gpu, errors, shots };
 }
 
+const label = { win: '클리어', lose: '쓰러짐', timeout: '시간 초과', 'webgl-error': 'WebGL 오류' };
 const server = await createServer({ logLevel: 'error', server: { port: 5199, strictPort: false } });
 await server.listen();
 const url = server.resolvedUrls.local[0];
@@ -229,7 +278,7 @@ try {
   for (let i = 1; i <= RUNS; i++) {
     console.log(`플레이 ${i}/${RUNS} ...`);
     const r = await playOnce(context, url, i);
-    console.log(`  → ${r.result}, ${r.seconds ?? '-'}초, 웨이브 ${r.waveReached ?? '-'}, 맞음 ${r.hurt ?? '-'}회, 오류 ${r.errors.length}개`);
+    console.log(`  → ${r.rows.length}번 플레이, ${r.totalSeconds ?? '-'}초, 오류 ${r.errors.length}개`);
     results.push(r);
   }
 } finally {
@@ -237,25 +286,27 @@ try {
   await server.close();
 }
 
-const label = { win: '클리어', lose: '쓰러짐', timeout: '시간 초과', 'webgl-error': 'WebGL 오류' };
+const allRows = results.flatMap((r) => r.rows.map((row) => ({ run: r.run, ...row })));
 const md = [
   `# 자동 플레이 점검 ${stamp}`,
   '',
-  `봇 설정: 퀴즈 오답률 ${WRONG_RATE * 100}%, 예고 피하는 확률 ${DODGE * 100}%, 한 판 최대 ${TIMEOUT / 1000}초, ${RUNS}판${KEEP_SAVE ? ', 저장 이어서' : ''}`,
+  `봇 설정: 퀴즈 오답률 ${WRONG_RATE * 100}%, 예고 피하는 확률 ${DODGE * 100}%, 한 판 최대 ${TIMEOUT / 1000}초, ${RUNS}번` +
+    `${START_STAGE > 1 ? `, ${START_STAGE}스테이지부터` : ''}${CAMPAIGN ? ', 캠페인(이기면 다음 스테이지)' : ''}${KEEP_SAVE ? ', 저장 이어서' : ''}`,
   '',
-  '| 판 | 결과 | 걸린 시간(초) | 웨이브 | 레벨 | 처치 | 퀴즈 정답 | 새 단어 | 맞은 횟수 | 최저 HP | FPS | 오류 |',
-  '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |',
-  ...results.map((r) => `| ${r.run} | ${label[r.result] ?? r.result} | ${r.seconds ?? '-'} | ${r.waveReached ?? '-'} | ${r.level ?? '-'} | ${r.kills ?? '-'} | ${r.quiz ?? '-'} | ${r.learned ?? '-'} | ${r.hurt ?? '-'} | ${r.minHpRatio ?? '-'} | ${r.fps ?? '-'} | ${r.errors.length} |`),
+  '| 회차 | 스테이지 | 결과 | 시간(초) | 웨이브 | 레벨 | 처치 | 퀴즈 정답 | 새 단어 | 맞은 횟수 | 최저 HP |',
+  '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |',
+  ...allRows.map((r) => `| ${r.run} | ${r.stage ?? '-'} | ${label[r.result] ?? r.result} | ${r.seconds ?? '-'} | ${r.waveReached ?? '-'} | ${r.level ?? '-'} | ${r.kills ?? '-'} | ${r.quiz ?? '-'} | ${r.learned ?? '-'} | ${r.hurt ?? '-'} | ${r.minHpRatio ?? '-'} |`),
   '',
-  '## 저장된 진행 (판 시작 → 끝)',
-  ...results.map((r) => (r.profileBefore && r.profileAfter ? `- 판 ${r.run}: Lv ${r.profileBefore.level}→${r.profileAfter.level}, 골드 ${r.profileBefore.gold}→${r.profileAfter.gold}, 누적 처치 ${r.profileBefore.kills}→${r.profileAfter.kills}, 도감 ${r.profileBefore.collected}→${r.profileAfter.collected}, 판 수 ${r.profileAfter.runs}, 클리어 ${r.profileAfter.clears}` : `- 판 ${r.run}: -`)),
+  '## 회차별',
+  ...results.map((r) => `- 회차 ${r.run}: 플레이 ${r.rows.length}번, 총 ${r.totalSeconds ?? '-'}초, FPS ${r.fps ?? '-'}, 오류 ${r.errors.length}` +
+    (r.profileBefore && r.profileAfter ? ` · Lv ${r.profileBefore.level}→${r.profileAfter.level}, 골드 ${r.profileBefore.gold}→${r.profileAfter.gold}, 도감 ${r.profileBefore.collected}→${r.profileAfter.collected}, 클리어 ${r.profileAfter.clears}` : '')),
   '',
   'FPS는 이 PC 기준. 화면 주사율(보통 60)이 상한이다. headless는 소프트웨어 렌더링(SwiftShader)이라 실제 GPU보다 느리다. 실제 GPU로 재려면 --headed.',
   '',
   `렌더러: ${[...new Set(results.map((r) => r.gpu).filter(Boolean))].join(' / ') || '-'}`,
   '',
   '## 오류',
-  ...(results.some((r) => r.errors.length) ? results.flatMap((r) => r.errors.map((e) => `- 판 ${r.run}: ${e}`)) : ['없음']),
+  ...(results.some((r) => r.errors.length) ? results.flatMap((r) => r.errors.map((e) => `- 회차 ${r.run}: ${e}`)) : ['없음']),
   '',
   '## 스크린샷',
   ...results.flatMap((r) => r.shots.map((f) => `- ${f}`)),
@@ -264,4 +315,4 @@ const md = [
 writeFileSync(join(OUT, 'report.md'), md);
 writeFileSync(join(OUT, 'report.json'), JSON.stringify({ stamp, wrongRate: WRONG_RATE, dodge: DODGE, results }, null, 2));
 console.log(`\n리포트: ${join(OUT, 'report.md')}`);
-process.exit(results.some((r) => r.errors.length || r.result === 'webgl-error') ? 1 : 0);
+process.exit(results.some((r) => r.errors.length || r.rows.some((x) => x.result === 'webgl-error')) ? 1 : 0);

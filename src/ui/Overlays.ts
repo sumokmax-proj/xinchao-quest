@@ -2,6 +2,9 @@ import { el } from './dom';
 
 export interface EndSummary {
   win: boolean;
+  stageName: string;
+  hasNext: boolean; // 이겼고 다음 스테이지가 있음 → 큰 버튼이 "다음 스테이지"
+  isLast: boolean;
   correct: number;
   total: number;
   kills: number;
@@ -33,7 +36,11 @@ function fillWords(id: string, words: Map<string, string>, empty: string): void 
   }
 }
 
-export const isOverlayOpen = (): boolean => !el('startOv').hidden || !el('endOv').hidden || !el('bookOv').hidden;
+export const isOverlayOpen = (): boolean => !el('startOv').hidden || !el('endOv').hidden || !el('bookOv').hidden || !el('stageOv').hidden;
+
+export function showStart(): void {
+  el('startOv').hidden = false;
+}
 
 /** 시작 화면: 저장된 진행 (처음 하는 사람에게는 안 보임) */
 export function setStartProfile(p: { level: number; gold: number; runs: number }, collected: number, total: number, wrongCount: number, goldText: string): void {
@@ -65,8 +72,9 @@ export function showError(): void {
 
 /** 클리어 / 쓰러짐 화면 */
 export function showEnd(s: EndSummary): void {
-  el('endTitle').textContent = s.win ? '풀밭 정화 완료' : '쓰러졌어요';
-  el('endSub').textContent = s.win ? '대장 고블린까지 모두 물리쳤어요.' : '다시 도전해 보세요. 틀린 단어는 다음 판에 더 자주 나와요.';
+  el('endTitle').textContent = s.win ? '스테이지 클리어' : '쓰러졌어요';
+  el('endSub').textContent = s.win ? `${s.stageName} 정화 완료` : `${s.stageName} · 틀린 단어는 다음 판에 더 자주 나와요`;
+  el('btnRetry').textContent = s.hasNext ? '다음 스테이지 ▶' : '다시 하기';
   const acc = s.total ? Math.round((s.correct / s.total) * 100) : 0;
   const rows: [string, string][] = [
     ['퀴즈 정답률', `${acc}% (${s.correct}/${s.total})`],

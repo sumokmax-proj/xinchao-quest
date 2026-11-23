@@ -20,7 +20,7 @@ export class Player {
   stats: HeroStats & { gold: number } = Player.freshStats();
 
   constructor(
-    private grid: Grid,
+    public grid: Grid,
     readonly model: HeroModel,
   ) {}
 

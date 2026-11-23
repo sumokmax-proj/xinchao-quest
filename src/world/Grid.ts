@@ -26,6 +26,7 @@ export interface SpawnArea {
 
 export interface MapData {
   name: string;
+  theme?: string; // 색·소품 분위기 (render/themes.ts)
   rows: string[];
   start: Cell;
   spawnArea: SpawnArea;

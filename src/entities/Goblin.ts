@@ -1,5 +1,5 @@
 import type * as THREE from 'three';
-import { CONFIG, type EnemyKind } from '../config';
+import { CONFIG, type EnemyKind, type EnemyStats } from '../config';
 import { faceAngle } from '../combat/BumpAttack';
 import { telegraphDone, telegraphHits, telegraphProgress, type TelegraphState } from '../combat/Telegraph';
 import { easeInOut, easeOut, lerpAngle } from '../core/math';
@@ -23,7 +23,7 @@ export interface GoblinContext {
 
 export class Goblin {
   readonly boss: boolean;
-  readonly stats: (typeof CONFIG.enemies)[EnemyKind];
+  readonly stats: EnemyStats;
   readonly model: GoblinModel;
   readonly hpLabel: HpLabel;
   x: number;
@@ -56,9 +56,10 @@ export class Goblin {
     private grid: Grid,
     private scene: THREE.Scene,
     private rng: Rng,
+    stats: EnemyStats = CONFIG.enemies[kind],
   ) {
     this.boss = kind === 'boss';
-    this.stats = CONFIG.enemies[kind];
+    this.stats = stats;
     this.hp = this.maxHp = this.stats.hp;
     this.need = this.stats.quizCount;
     const ai = CONFIG.goblinAi;

@@ -75,6 +75,7 @@ export const CONFIG = {
     healRatio: 0.15, // 오답·시간 초과 시 최대 HP의 15%로 회복
     othersSpeed: 0.25, // 퀴즈 중 다른 고블린 속도 배율
     reviewChance: 0.4, // 오답노트 단어가 나올 확률
+    olderChance: 0.3, // 앞 스테이지 주제 단어까지 섞어서 낼 확률 (복습)
     toneChance: 0.4, // 성조만 다른 짝이 있는 단어일 때 성조 구별 문제가 나올 확률
     reviewClearAt: 3, // 오답노트 점수가 이 값이 되면 오답노트에서 빠짐 (틀리면 1, 맞힐 때마다 +1)
     nextQuestionDelay: 0.5, // 대장: 정답 후 다음 문제까지
@@ -113,3 +114,17 @@ export const CONFIG = {
 } as const;
 
 export type EnemyKind = keyof typeof CONFIG.enemies;
+
+/** 적 한 종류의 능력치 (스테이지 배율을 곱한 뒤의 값도 이 모양) */
+export interface EnemyStats {
+  hp: number;
+  damage: number;
+  telegraph: number;
+  attackRecover: number;
+  moveDuration: number;
+  chaseStepDelay: number;
+  quizCount: number;
+  exp: number;
+  gold: number;
+  scale: number;
+}

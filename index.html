@@ -52,11 +52,17 @@
 
   <section class="overlay" id="startOv">
     <h1>씬짜오 퀘스트 3D</h1>
-    <p class="sub">마을 앞 풀밭 · <span id="version"></span></p>
+    <p class="sub"><span id="version"></span></p>
     <p class="profile" id="startProfile" hidden></p>
     <button type="button" class="btn" id="btnStart">모험 시작</button>
     <button type="button" class="btn ghost" id="btnBook">단어장 <small id="bookCount"></small><i class="badge" id="bookBadge" hidden></i></button>
     <p class="note" id="startNote"></p>
+  </section>
+
+  <section class="overlay book" id="stageOv" hidden>
+    <h2>어디로 갈까요?</h2>
+    <div class="booklist" id="stageList"></div>
+    <button type="button" class="btn ghost" id="btnStageClose">닫기</button>
   </section>
 
   <section class="overlay book" id="bookOv" hidden>
@@ -77,6 +83,7 @@
       <div><h3 class="listhead" id="endWrongsHead"></h3><ul class="wrongs" id="endWrongs"></ul></div>
     </div>
     <div class="btnrow">
+      <button type="button" class="btn ghost" id="btnMenu">목록</button>
       <button type="button" class="btn ghost" id="btnBook2">단어장</button>
       <button type="button" class="btn" id="btnRetry">다시 하기</button>
     </div>

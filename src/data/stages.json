@@ -1,0 +1,78 @@
+[
+  {
+    "id": "meadow",
+    "name": "마을 앞 풀밭",
+    "map": "field-01",
+    "topics": ["인사", "자기소개"],
+    "power": 1,
+    "waves": [
+      { "label": "고블린 3마리", "enemies": ["goblin", "goblin", "goblin"] },
+      { "label": "고블린 4마리", "enemies": ["goblin", "goblin", "goblin", "goblin"] },
+      { "label": "대장 고블린 등장", "enemies": ["goblin", "goblin", "boss"] }
+    ]
+  },
+  {
+    "id": "bamboo",
+    "name": "대나무 숲길",
+    "map": "bamboo-02",
+    "topics": ["가족", "일상"],
+    "power": 1.25,
+    "waves": [
+      { "label": "고블린 4마리", "enemies": ["goblin", "goblin", "goblin", "goblin"] },
+      { "label": "고블린 5마리", "enemies": ["goblin", "goblin", "goblin", "goblin", "goblin"] },
+      { "label": "고블린 무리", "enemies": ["goblin", "goblin", "goblin", "goblin"] },
+      { "label": "대장 고블린 등장", "enemies": ["goblin", "goblin", "goblin", "boss"] }
+    ]
+  },
+  {
+    "id": "river",
+    "name": "홍강 둑길",
+    "map": "river-03",
+    "topics": ["숫자", "카페"],
+    "power": 1.5,
+    "waves": [
+      { "label": "고블린 4마리", "enemies": ["goblin", "goblin", "goblin", "goblin"] },
+      { "label": "고블린 5마리", "enemies": ["goblin", "goblin", "goblin", "goblin", "goblin"] },
+      { "label": "고블린 무리", "enemies": ["goblin", "goblin", "goblin", "goblin", "goblin"] },
+      { "label": "대장 고블린 등장", "enemies": ["goblin", "goblin", "goblin", "boss"] }
+    ]
+  },
+  {
+    "id": "market",
+    "name": "시장 골목",
+    "map": "market-04",
+    "topics": ["시장"],
+    "power": 1.8,
+    "waves": [
+      { "label": "고블린 4마리", "enemies": ["goblin", "goblin", "goblin", "goblin"] },
+      { "label": "고블린 5마리", "enemies": ["goblin", "goblin", "goblin", "goblin", "goblin"] },
+      { "label": "고블린 무리", "enemies": ["goblin", "goblin", "goblin", "goblin", "goblin"] },
+      { "label": "대장 고블린 둘", "enemies": ["goblin", "goblin", "boss", "boss"] }
+    ]
+  },
+  {
+    "id": "paddy",
+    "name": "논두렁 길",
+    "map": "paddy-05",
+    "topics": ["길", "시간"],
+    "power": 2.1,
+    "waves": [
+      { "label": "고블린 5마리", "enemies": ["goblin", "goblin", "goblin", "goblin", "goblin"] },
+      { "label": "고블린 무리", "enemies": ["goblin", "goblin", "goblin", "goblin", "goblin"] },
+      { "label": "고블린 무리", "enemies": ["goblin", "goblin", "goblin", "goblin", "goblin", "goblin"] },
+      { "label": "대장 고블린 둘", "enemies": ["goblin", "goblin", "goblin", "boss", "boss"] }
+    ]
+  },
+  {
+    "id": "fort",
+    "name": "고블린 요새",
+    "map": "fort-06",
+    "topics": [],
+    "power": 2.4,
+    "waves": [
+      { "label": "요새 경비", "enemies": ["goblin", "goblin", "goblin", "goblin", "goblin"] },
+      { "label": "대장들", "enemies": ["goblin", "goblin", "boss", "boss"] },
+      { "label": "고블린 왕", "enemies": ["boss"] }
+    ]
+  }
+]

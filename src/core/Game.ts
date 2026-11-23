@@ -1,6 +1,5 @@
 import { CONFIG, type EnemyKind } from '../config';
-import mapJson from '../data/maps/field-01.json';
-import wavesJson from '../data/waves.json';
+import stagesJson from '../data/stages.json';
 import wordsJson from '../data/words.json';
 import { decideBump, faceAngle } from '../combat/BumpAttack';
 import { isCorrect, makeQuestion, resolveQuiz, updateWrongNote, type Question, type Word } from '../combat/QuizSystem';
@@ -11,24 +10,28 @@ import { Goblin } from '../entities/Goblin';
 import { Player } from '../entities/Player';
 import { makeHero } from '../render/models';
 import { Particles } from '../render/Effects';
-import { buildMap, createScene } from '../render/scene';
+import { applyTheme, buildMap, createScene, disposeMap } from '../render/scene';
+import { getTheme } from '../render/themes';
 import { el, esc, fmtDong } from '../ui/dom';
 import { Hud } from '../ui/Hud';
 import { floatText, toScreen } from '../ui/Labels';
-import { hideEnd, hideStart, setStartNote, setStartProfile, showEnd, type EndSummary } from '../ui/Overlays';
+import { hideEnd, hideStart, setStartNote, setStartProfile, showEnd, showStart, type EndSummary } from '../ui/Overlays';
+import { StageSelect } from '../ui/StageSelect';
 import { WordBook } from '../ui/WordBook';
 import { QuizBubble } from '../ui/QuizBubble';
 import { banner, toast } from '../ui/Toasts';
 import { CameraRig } from '../world/CameraRig';
 import { DIRS, Grid, findSpawnCell, isCellFree, type Cell, type Dir, type MapData } from '../world/Grid';
+import { getMap } from '../world/maps';
+import type * as THREE from 'three';
 import { defaultRng } from './random';
 import { dexProgress, heroStatsFor, recordAnswer } from './Progress';
 import { loadSave, persist, type SaveData } from './Save';
 import { Timers } from './Timers';
-import { WaveProgress, type WaveData } from './Waves';
+import { WaveProgress } from './Waves';
+import { isUnlocked, lastUnlocked, pickPool, recordClear, scaleEnemy, stageWords, type StageData } from './Stages';
 
-const MAP = mapJson as MapData;
-const WAVES = wavesJson as WaveData[];
+const STAGES = stagesJson as StageData[];
 const WORDS = wordsJson as Word[];
 
 /** debugSnapshot()이 돌려주는 형식 */
@@ -40,6 +43,7 @@ export interface DebugSnapshot {
   goblins: { c: number; r: number; hp: number; maxHp: number; state: string; boss: boolean; telegraph: Cell | null }[];
   quiz: { answerSide: 0 | 1; acceptsInput: boolean; prompt: string; kind: string } | null;
   wave: { index: number; total: number };
+  stage: { index: number; id: string; total: number; unlocked: number };
   stats: { quiz: number; correct: number; kills: number; hurt: number; learned: number };
   /** 저장된 누적 진행 (판이 끝나도 남음) */
   profile: { level: number; gold: number; kills: number; correct: number; answered: number; runs: number; clears: number; collected: number };
@@ -57,14 +61,20 @@ interface QuizRun {
 export class Game {
   readonly scene = createScene();
   readonly cam = new CameraRig();
-  readonly grid = new Grid(MAP.rows);
+  grid!: Grid;
+  private map!: MapData;
+  private mapRoot: THREE.Group | null = null;
+  private mapName = '';
+  private stageIndex = 0;
+  private pools: { main: Word[]; older: Word[] } = { main: WORDS, older: [] };
   private readonly rng = defaultRng;
   private readonly timers = new Timers();
   private readonly particles: Particles;
   private readonly player: Player;
-  private readonly waves = new WaveProgress(WAVES.length);
+  private waves = new WaveProgress(1);
   private readonly bubble: QuizBubble;
   private readonly book = new WordBook();
+  private readonly select = new StageSelect((i) => this.play(i));
   private save: SaveData = loadSave();
   private goblins: Goblin[] = [];
   private quiz: QuizRun | null = null;
@@ -77,10 +87,11 @@ export class Game {
   private hurtCount = 0;
 
   constructor() {
-    buildMap(this.scene, this.grid);
     this.particles = new Particles(this.scene);
     const hero = makeHero();
     this.scene.add(hero.group);
+    this.stageIndex = lastUnlocked(STAGES, this.save.stages);
+    this.loadStage(this.stageIndex);
     this.player = new Player(this.grid, hero);
     this.bubble = new QuizBubble((side) => this.answer(side));
     setSoundEnabled(this.save.sound);
@@ -94,7 +105,27 @@ export class Game {
     return this.save;
   }
 
+  private get stage(): StageData {
+    return STAGES[this.stageIndex];
+  }
+
   /* ---------- 판 시작·끝 ---------- */
+
+  /** 스테이지의 맵·분위기·단어 묶음을 준비한다. 같은 맵이면 다시 만들지 않는다 */
+  private loadStage(index: number): void {
+    this.stageIndex = index;
+    const st = this.stage;
+    this.pools = stageWords(WORDS, STAGES, index);
+    if (st.map === this.mapName) return;
+    if (this.mapRoot) disposeMap(this.scene, this.mapRoot);
+    this.map = getMap(st.map);
+    this.mapName = st.map;
+    this.grid = new Grid(this.map.rows);
+    const theme = getTheme(this.map.theme);
+    applyTheme(this.scene, theme);
+    this.mapRoot = buildMap(this.scene, this.grid, theme);
+    if (this.player) this.player.grid = this.grid;
+  }
 
   reset(): void {
     this.goblins.forEach((g) => g.dispose());
@@ -103,31 +134,53 @@ export class Game {
     this.timers.clear();
     this.endQuiz();
     const pr = this.save.profile;
-    this.player.reset(MAP.start, { ...heroStatsFor(pr.level, pr.exp), gold: pr.gold });
+    this.player.reset(this.map.start, { ...heroStatsFor(pr.level, pr.exp), gold: pr.gold });
     this.cam.snapTo(this.player.x, this.player.z);
     this.run = { quiz: 0, correct: 0, wrong: new Map(), learned: new Map(), kills: 0, start: performance.now() };
     this.result = null;
     this.hurtCount = 0;
-    this.waves.reset();
+    this.waves = new WaveProgress(this.stage.waves.length);
     this.held = [];
     this.queued = null;
     this.spawnWave(0, true);
     this.updateHud();
   }
 
+  /** 시작 화면의 "모험 시작": 처음이면 바로 1스테이지, 깬 스테이지가 있으면 스테이지 목록 */
   start(): void {
     unlockAudio();
-    hideStart();
-    this.beginRun();
-    banner('웨이브 1', WAVES[0].label);
+    if (lastUnlocked(STAGES, this.save.stages) === 0 && !this.save.stages[STAGES[0].id]) this.play(0);
+    else this.openSelect();
   }
 
+  openSelect(): void {
+    this.select.open(STAGES, this.save.stages, this.save.dex, WORDS);
+  }
+
+  /** 결과 화면의 큰 버튼: 이겼고 다음 스테이지가 있으면 다음, 아니면 같은 스테이지 다시 */
   retry(): void {
-    unlockAudio();
+    const next = this.result === 'win' && isUnlocked(STAGES, this.save.stages, this.stageIndex + 1) ? this.stageIndex + 1 : this.stageIndex;
+    this.play(next);
+  }
+
+  /** 결과 화면 → 시작 화면 */
+  toMenu(): void {
     hideEnd();
+    this.updateStartNote();
+    showStart();
+  }
+
+  /** index번 스테이지를 처음부터 */
+  play(index: number): void {
+    if (!isUnlocked(STAGES, this.save.stages, index)) return;
+    unlockAudio();
+    hideStart();
+    hideEnd();
+    this.select.close();
+    this.loadStage(index);
     this.reset();
     this.beginRun();
-    banner('웨이브 1', WAVES[0].label);
+    banner(this.stage.name, '웨이브 1 · ' + this.stage.waves[0].label);
   }
 
   private beginRun(): void {
@@ -139,17 +192,22 @@ export class Game {
   private finish(win: boolean): void {
     this.running = false;
     this.result = win ? 'win' : 'lose';
+    const seconds = Math.round((performance.now() - this.run.start) / 1000);
     if (win) {
       this.save.profile = { ...this.save.profile, clears: this.save.profile.clears + 1 };
+      this.save.stages = recordClear(this.save.stages, this.stage.id, seconds);
       persist(this.save);
     }
     const summary: EndSummary = {
       win,
+      stageName: this.stage.name,
+      hasNext: win && this.stageIndex + 1 < STAGES.length,
+      isLast: this.stageIndex === STAGES.length - 1,
       correct: this.run.correct,
       total: this.run.quiz,
       kills: this.run.kills,
       level: this.player.stats.level,
-      seconds: Math.round((performance.now() - this.run.start) / 1000),
+      seconds,
       wrongWords: this.run.wrong,
       learnedWords: this.run.learned,
     };
@@ -215,17 +273,18 @@ export class Game {
   /* ---------- 웨이브 ---------- */
 
   private spawnWave(index: number, silent: boolean): void {
-    const w = WAVES[index];
+    const w = this.stage.waves[index];
     w.enemies.forEach((k) => this.spawnGoblin(k));
-    Hud.setWave(index, WAVES.length);
+    Hud.setWave(index, this.stage.waves.length);
     if (!silent) banner('웨이브 ' + (index + 1), w.label);
   }
 
   private spawnGoblin(kind: EnemyKind): void {
     const occupied: Cell[] = [this.player.cell, ...this.goblins.filter((g) => g.alive).map((g) => ({ c: g.c, r: g.r }))];
     const ai = CONFIG.goblinAi;
-    const cell = findSpawnCell(this.grid, MAP.spawnArea, occupied, this.player.cell, ai.spawnMinDistance, this.rng, ai.spawnMaxTries);
-    this.goblins.push(new Goblin(kind, cell.c, cell.r, this.grid, this.scene, this.rng));
+    const cell = findSpawnCell(this.grid, this.map.spawnArea, occupied, this.player.cell, ai.spawnMinDistance, this.rng, ai.spawnMaxTries);
+    const stats = scaleEnemy(CONFIG.enemies[kind], this.stage.power);
+    this.goblins.push(new Goblin(kind, cell.c, cell.r, this.grid, this.scene, this.rng, stats));
   }
 
   /* ---------- 점유 ---------- */
@@ -312,7 +371,7 @@ export class Game {
       timeLeft: CONFIG.quiz.timeLimit,
       armedAt: performance.now() + CONFIG.quiz.inputGuard * 1000,
       locked: false,
-      question: makeQuestion(WORDS, this.save.wrong, this.rng),
+      question: makeQuestion(pickPool(this.pools, this.rng, CONFIG.quiz.olderChance), this.save.wrong, this.rng),
     };
     this.showQuestion();
     this.bubble.setTeach(!this.save.answeredQuiz);
@@ -327,7 +386,7 @@ export class Game {
 
   private nextQuestion(): void {
     if (!this.quiz) return;
-    this.quiz.question = makeQuestion(WORDS, this.save.wrong, this.rng);
+    this.quiz.question = makeQuestion(pickPool(this.pools, this.rng, CONFIG.quiz.olderChance), this.save.wrong, this.rng);
     this.quiz.timeLeft = CONFIG.quiz.timeLimit;
     this.quiz.locked = false;
     this.showQuestion();
@@ -510,7 +569,8 @@ export class Game {
             kind: q.question.kind,
           }
         : null,
-      wave: { index: this.waves.index, total: WAVES.length },
+      wave: { index: this.waves.index, total: this.stage.waves.length },
+      stage: { index: this.stageIndex, id: this.stage.id, total: STAGES.length, unlocked: lastUnlocked(STAGES, this.save.stages) },
       stats: { quiz: this.run.quiz, correct: this.run.correct, kills: this.run.kills, hurt: this.hurtCount, learned: this.run.learned.size },
       profile: { ...this.save.profile, collected: dexProgress(this.save.dex, WORDS).collected },
     };

@@ -1,5 +1,6 @@
 import type { WrongNote } from '../combat/QuizSystem';
 import { freshProfile, sanitizeDex, sanitizeProfile, type Dex, type Profile } from './Progress';
+import { sanitizeStageRecords, type StageRecords } from './Stages';
 
 /** 기기(브라우저)에 저장하는 것. 프로토타입과 같은 키를 쓴다. */
 export interface SaveData {
@@ -9,11 +10,12 @@ export interface SaveData {
   answeredQuiz: boolean; // 퀴즈에 ←/→로 직접 답해 본 적 있나 (없으면 답 버튼을 깜빡여 알려줌)
   profile: Profile; // 레벨·EXP·골드·누적 기록 (판이 끝나도 남음)
   dex: Dex; // 단어 도감 (단어별 맞힘·틀림 기록)
+  stages: StageRecords; // 스테이지별 클리어 기록 (해금 판단)
 }
 
 const KEY = 'xinchao-3d-v1';
 
-export const defaultSave = (): SaveData => ({ wrong: {}, sound: true, pixel: true, answeredQuiz: false, profile: freshProfile(), dex: {} });
+export const defaultSave = (): SaveData => ({ wrong: {}, sound: true, pixel: true, answeredQuiz: false, profile: freshProfile(), dex: {}, stages: {} });
 
 /** 저장된 글자(JSON)를 SaveData로. 내용이 깨져 있거나 예전 형식이어도 빠진 곳은 기본값으로 채운다 */
 export function parseSave(raw: string | null): SaveData {
@@ -28,6 +30,7 @@ export function parseSave(raw: string | null): SaveData {
       if (typeof parsed.answeredQuiz === 'boolean') save.answeredQuiz = parsed.answeredQuiz;
       save.profile = sanitizeProfile(parsed.profile);
       save.dex = sanitizeDex(parsed.dex);
+      save.stages = sanitizeStageRecords(parsed.stages);
     }
   } catch {
     /* 깨진 JSON이면 기본값 */
@@ -54,5 +57,5 @@ export function persist(save: SaveData): void {
 
 /** 진행 초기화 (설정은 남긴다) */
 export function clearProgress(save: SaveData): SaveData {
-  return { ...save, wrong: {}, profile: freshProfile(), dex: {}, answeredQuiz: false };
+  return { ...save, wrong: {}, profile: freshProfile(), dex: {}, stages: {}, answeredQuiz: false };
 }

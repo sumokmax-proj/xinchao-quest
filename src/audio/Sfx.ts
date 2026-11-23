@@ -41,10 +41,51 @@ function tone(freqs: number[], dur = 0.07, type: OscillatorType = 'square', vol 
   }
 }
 
+/** 짧은 잡음 (타격 "퍽" 소리) */
+function noise(dur = 0.06, vol = 0.05, cutoff = 1800): void {
+  if (!actx || !enabled) return;
+  try {
+    const len = Math.floor(actx.sampleRate * dur);
+    const buf = actx.createBuffer(1, len, actx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
+    const src = actx.createBufferSource();
+    src.buffer = buf;
+    const f = actx.createBiquadFilter();
+    f.type = 'lowpass';
+    f.frequency.value = cutoff;
+    const g = actx.createGain();
+    g.gain.value = vol;
+    src.connect(f);
+    f.connect(g);
+    g.connect(actx.destination);
+    src.start();
+  } catch {
+    /* 무시 */
+  }
+}
+
+/** 배경음에서 같이 쓰는 오디오 장치 */
+export const audioContext = (): AudioContext | null => actx;
+
 export const sfx = {
+  /** 몬스터가 빨간 예고를 시작할 때 작은 경고음 (높이는 몬스터마다) */
+  warn: (pitch = 1) => tone([880 * pitch, 660 * pitch], 0.04, 'triangle', 0.025),
+  coin: () => tone([988, 1319], 0.06, 'square', 0.035),
+  page: () => noise(0.08, 0.035, 3200),
+  kill: () => {
+    noise(0.12, 0.07, 900);
+    tone([660, 990, 1320], 0.05, 'triangle', 0.05);
+  },
   swing: () => tone([520, 300], 0.05, 'triangle', 0.05),
-  hit: () => tone([330, 500], 0.06),
-  crit: () => tone([520, 780, 1040], 0.06),
+  hit: () => {
+    noise(0.05, 0.06, 1400);
+    tone([330, 500], 0.06);
+  },
+  crit: () => {
+    noise(0.08, 0.08, 2400);
+    tone([520, 780, 1040], 0.06);
+  },
   hurt: () => tone([200, 120], 0.12, 'sawtooth', 0.05),
   quiz: () => tone([660, 880], 0.08, 'triangle', 0.06),
   good: () => tone([523, 659, 784, 1046], 0.08, 'triangle', 0.07),

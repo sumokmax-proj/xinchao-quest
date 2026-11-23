@@ -7,6 +7,7 @@ import { emptyInventory, sanitizeInventory, type Inventory } from './Shop';
 export interface SaveData {
   wrong: WrongNote;
   sound: boolean;
+  music: boolean; // 배경음 (소리가 꺼져 있으면 같이 꺼짐)
   pixel: boolean;
   answeredQuiz: boolean; // 퀴즈에 ←/→로 직접 답해 본 적 있나 (없으면 답 버튼을 깜빡여 알려줌)
   profile: Profile; // 레벨·EXP·골드·누적 기록 (판이 끝나도 남음)
@@ -19,7 +20,7 @@ export interface SaveData {
 
 const KEY = 'xinchao-3d-v1';
 
-export const defaultSave = (): SaveData => ({ wrong: {}, sound: true, pixel: true, answeredQuiz: false, profile: freshProfile(), dex: {}, stages: {}, inventory: emptyInventory(), seen: [], villageBuilt: 0 });
+export const defaultSave = (): SaveData => ({ wrong: {}, sound: true, music: true, pixel: true, answeredQuiz: false, profile: freshProfile(), dex: {}, stages: {}, inventory: emptyInventory(), seen: [], villageBuilt: 0 });
 
 /** 저장된 글자(JSON)를 SaveData로. 내용이 깨져 있거나 예전 형식이어도 빠진 곳은 기본값으로 채운다 */
 export function parseSave(raw: string | null): SaveData {
@@ -31,6 +32,7 @@ export function parseSave(raw: string | null): SaveData {
       if (parsed.wrong && typeof parsed.wrong === 'object') save.wrong = parsed.wrong;
       if (typeof parsed.sound === 'boolean') save.sound = parsed.sound;
       if (typeof parsed.pixel === 'boolean') save.pixel = parsed.pixel;
+      if (typeof parsed.music === 'boolean') save.music = parsed.music;
       if (typeof parsed.answeredQuiz === 'boolean') save.answeredQuiz = parsed.answeredQuiz;
       save.profile = sanitizeProfile(parsed.profile);
       save.dex = sanitizeDex(parsed.dex);

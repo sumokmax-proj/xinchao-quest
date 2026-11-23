@@ -1,5 +1,6 @@
 import { ART } from './cartoonArt';
 import { el } from './dom';
+import { sfx } from '../audio/Sfx';
 
 export interface Panel {
   art: string;
@@ -43,6 +44,7 @@ export class Cartoon {
   /** 방향키·스페이스로도 넘김. 방금 뜬 컷은 실수로 넘기지 않게 0.35초 기다린다 */
   next(): void {
     if (!this.isOpen || performance.now() - this.shownAt < 350) return;
+    sfx.page();
     if (this.i + 1 < this.panels.length) {
       this.i++;
       this.show();

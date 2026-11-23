@@ -10,6 +10,7 @@ import { applyDamage, gainExp, recoverHp, rollDamage } from '../combat/rules';
 import { crossedPhase, phaseBonusHp } from '../combat/BossPhases';
 import { sfx, setSoundEnabled, unlockAudio } from '../audio/Sfx';
 import { initVoice, setVoiceEnabled, speak } from '../audio/Voice';
+import { musicState, playMusic, setMusicEnabled } from '../audio/Music';
 import { Goblin } from '../entities/Goblin';
 import { Player } from '../entities/Player';
 import { makeHero } from '../render/models';
@@ -71,6 +72,7 @@ export interface DebugSnapshot {
   dialog: { open: boolean; asking: boolean; answer: 0 | 1 | null };
   npcs: { id: string; c: number; r: number; role: string }[];
   overlay: string | null;
+  music: { track: string | null; playing: boolean; steps: number };
   stats: { quiz: number; correct: number; kills: number; hurt: number; learned: number };
   /** 저장된 누적 진행 (판이 끝나도 남음) */
   profile: { level: number; gold: number; kills: number; correct: number; answered: number; runs: number; clears: number; collected: number };
@@ -146,6 +148,7 @@ export class Game {
     this.bubble = new QuizBubble((side) => this.answer(side));
     setSoundEnabled(this.save.sound);
     setVoiceEnabled(this.save.sound);
+    setMusicEnabled(this.save.sound && this.save.music);
     initVoice(() => this.updateStartNote());
     this.updateStartNote();
     if (this.mode === 'field') this.reset();
@@ -335,6 +338,7 @@ export class Game {
     this.placeInVillage();
     this.askedThisVisit.clear();
     this.running = true;
+    playMusic('village');
     const collected = dexProgress(this.save.dex, WORDS).collected;
     const built = VILLAGE.buildings.filter((b) => collected >= b.need);
     const fresh = this.seen('village') ? built.slice(this.save.villageBuilt) : [];
@@ -431,6 +435,7 @@ export class Game {
       speak(q.right);
       if (ok) {
         sfx.good();
+        sfx.coin();
         const gold = CONFIG.village.answerGold;
         this.save.profile = { ...this.save.profile, gold: this.save.profile.gold + gold };
         this.player.stats.gold = this.save.profile.gold;
@@ -465,6 +470,7 @@ export class Game {
     this.reset();
     this.beginRun();
     Hud.setPlace(null);
+    playMusic(index === STAGES.length - 1 ? 'boss' : 'field');
     banner(this.stage.name, '웨이브 1 · ' + this.stage.waves[0].label);
     // 에그커피가 있으면 판을 시작하면서 한 잔
     const coffee = SHOP.find((x) => x.stageQuizTime);
@@ -484,6 +490,7 @@ export class Game {
 
   private finish(win: boolean): void {
     this.running = false;
+    playMusic(null);
     this.result = win ? 'win' : 'lose';
     const seconds = Math.round((performance.now() - this.run.start) / 1000);
     const isLast = this.stageIndex === STAGES.length - 1;
@@ -535,10 +542,17 @@ export class Game {
     persist(this.save);
   }
 
+  toggleMusic(): void {
+    this.save.music = !this.save.music;
+    setMusicEnabled(this.save.sound && this.save.music);
+    persist(this.save);
+  }
+
   toggleSound(): void {
     this.save.sound = !this.save.sound;
     setSoundEnabled(this.save.sound);
     setVoiceEnabled(this.save.sound);
+    setMusicEnabled(this.save.sound && this.save.music);
     persist(this.save);
     unlockAudio();
   }
@@ -573,7 +587,7 @@ export class Game {
       if (rec.newlyLearned) toast(`<b>도감에 새 단어!</b> ${esc(item.vi)} = ${esc(item.ko)}`, 'level');
     }
     persist(this.save);
-    sfx.level();
+    sfx.coin();
     speak(item.vi);
     this.shop.render(this.save.inventory, this.save.profile.gold);
     this.updateStartNote();
@@ -881,7 +895,7 @@ export class Game {
   private killGoblin(g: Goblin): void {
     this.endQuiz();
     this.player.swing();
-    sfx.swing();
+    sfx.kill();
     g.kill();
     this.run.kills++;
     this.particles.burst(g.x, g.z, g.boss ? 26 : 14, MONSTER_COLOR[g.kind]);
@@ -1063,6 +1077,7 @@ export class Game {
       cutscene: this.cartoon.isOpen,
       dialog: { open: this.dialog.isOpen, asking: this.dialog.asking, answer: this.talkAnswer },
       npcs: this.npcs.map((n) => ({ id: n.npc.id, c: n.npc.at.c, r: n.npc.at.r, role: n.npc.role })),
+      music: musicState(),
       overlay: ['shopOv', 'bookOv', 'stageOv', 'endOv', 'startOv'].find((id) => !el(id).hidden) ?? null,
       items: { ...this.save.inventory.items },
       gear: this.save.inventory.gear.slice(),

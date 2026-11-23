@@ -36,7 +36,7 @@ async function boot(): Promise<void> {
     renderer.setPixelRatio(pixel ? 1 : Math.min(window.devicePixelRatio || 1, CONFIG.render.maxPixelRatio));
     renderer.setSize(Math.round(w / scale), Math.round(h / scale), false);
     renderer.domElement.classList.toggle('pixel', pixel);
-    Hud.setToggles(pixel, game.settings.sound);
+    Hud.setToggles(pixel, game.settings.sound, game.settings.music);
   }
   window.addEventListener('resize', resize);
   // 폰을 가로로 돌리면 (화면 높이가 낮은 가로) "세로로 돌려 주세요"를 띄우고 게임을 멈춘다
@@ -89,6 +89,10 @@ async function boot(): Promise<void> {
     resetArmed = performance.now();
     el('btnReset').classList.add('armed');
     el('resetNote').textContent = '레벨·골드·도감·스테이지가 모두 지워져요. 한 번 더 누르면 지워져요.';
+  });
+  el('btnMusic').addEventListener('click', () => {
+    game.toggleMusic();
+    resize();
   });
   el('btnPixel').addEventListener('click', () => {
     game.togglePixel();

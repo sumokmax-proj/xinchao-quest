@@ -7,6 +7,7 @@ import { rand, type Rng } from '../core/random';
 import { makeTelegraphMesh } from '../render/Effects';
 import { disposeObject, type GoblinModel } from '../render/models';
 import { makeMonster } from '../render/monsters';
+import { sfx } from '../audio/Sfx';
 import { HpLabel } from '../ui/Labels';
 import type { Cell, Grid, Step } from '../world/Grid';
 import { chooseGoblinStep, isAdjacent } from './goblinBrain';
@@ -260,6 +261,8 @@ export class Goblin {
     // 내려찍기는 시간이 조금 더 걸린다 (8칸을 보고 두 칸 물러날 시간)
     const duration = pattern === 'slam' ? this.stats.telegraph * 1.25 : this.stats.telegraph;
     this.tele = { state: { cells, elapsed: 0, duration }, meshes };
+    // 작은 경고음: 큰 몬스터일수록 낮은 소리
+    sfx.warn(1 / Math.max(0.8, this.stats.scale));
     this.face = faceAngle(Math.sign(target.c - this.c), Math.sign(target.r - this.r));
   }
 }

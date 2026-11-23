@@ -105,3 +105,20 @@ describe('단어장 정리', () => {
     expect(list[0].ko).toBe('하나');
   });
 });
+
+describe('배경음 악보', async () => {
+  const { SONGS, noteFreq, eighth } = await import('../src/audio/Music');
+  it('모든 곡이 16칸, 음계 번호가 음계 안', () => {
+    for (const s of Object.values(SONGS)) {
+      expect(s.melody).toHaveLength(16);
+      expect(s.bass).toHaveLength(16);
+      [...s.melody, ...s.bass].forEach((n) => n === null || expect(n).toBeLessThan(s.scale.length));
+    }
+  });
+  it('음계 0번은 기준음, 한 옥타브 위는 두 배', () => {
+    const s = SONGS.field;
+    expect(noteFreq(s, 0)).toBeCloseTo(s.root);
+    expect(noteFreq(s, 0, 1)).toBeCloseTo(s.root * 2);
+  });
+  it('8분음표 길이: 120bpm이면 0.25초', () => expect(eighth(120)).toBeCloseTo(0.25));
+});

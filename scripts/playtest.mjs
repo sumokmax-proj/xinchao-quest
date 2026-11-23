@@ -145,6 +145,13 @@ async function playOnce(browser, url, run) {
     () => new Promise((res) => { let n = 0; const t0 = performance.now(); const f = () => { n++; if (performance.now() - t0 < 2000) requestAnimationFrame(f); else res(Math.round(n / 2)); }; requestAnimationFrame(f); }),
   );
 
+  const gpu = await page.evaluate(() => {
+    try {
+      const gl = document.createElement('canvas').getContext('webgl2');
+      const ext = gl.getExtension('WEBGL_debug_renderer_info');
+      return String(gl.getParameter(ext ? ext.UNMASKED_RENDERER_WEBGL : gl.RENDERER));
+    } catch { return '?'; }
+  });
   const rng = seeded(1234 + run);
   const t0 = Date.now();
   let lastWave = 0;
@@ -184,6 +191,7 @@ async function playOnce(browser, url, run) {
     hurt: final.stats.hurt,
     minHpRatio: Math.round((Math.max(0, minHp) / final.player.maxHp) * 100) + '%',
     fps,
+    gpu,
     errors,
     shots,
   };
@@ -216,7 +224,9 @@ const md = [
   '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |',
   ...results.map((r) => `| ${r.run} | ${label[r.result] ?? r.result} | ${r.seconds ?? '-'} | ${r.waveReached ?? '-'} | ${r.level ?? '-'} | ${r.kills ?? '-'} | ${r.quiz ?? '-'} | ${r.hurt ?? '-'} | ${r.minHpRatio ?? '-'} | ${r.fps ?? '-'} | ${r.errors.length} |`),
   '',
-  'FPS는 이 PC 기준. 클라우드(GPU 없음)에서는 낮게 나오는 게 정상이라 참고만 한다.',
+  'FPS는 이 PC 기준. 화면 주사율(보통 60)이 상한이다. headless는 소프트웨어 렌더링(SwiftShader)이라 실제 GPU보다 느리다. 실제 GPU로 재려면 --headed.',
+  '',
+  `렌더러: ${[...new Set(results.map((r) => r.gpu).filter(Boolean))].join(' / ') || '-'}`,
   '',
   '## 오류',
   ...(results.some((r) => r.errors.length) ? results.flatMap((r) => r.errors.map((e) => `- 판 ${r.run}: ${e}`)) : ['없음']),

@@ -46,4 +46,4 @@ npm run playtest -- --runs 3
 | UI | 3 | 세로 화면에서 깔끔 |
 | Show, don't tell | 3 | 첫 화면 설명 제거, 첫 퀴즈 깜빡임 |
 | 안정성 | 4 | 3판 오류 0, 테스트 61개 |
-| 성능 | ? | 클라우드라 측정 불가 (오너 PC에서 측정) |
+| 성능 | 3 | 오너 PC(Intel UHD Graphics, 2026-11-23 측정): 실제 GPU(`--headed`) 61fps = 화면 주사율 상한, 소프트웨어 렌더링(headless SwiftShader)도 54~59fps. 에셋·드로우콜 관리는 아직 |

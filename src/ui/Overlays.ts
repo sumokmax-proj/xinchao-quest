@@ -8,6 +8,29 @@ export interface EndSummary {
   level: number;
   seconds: number;
   wrongWords: Map<string, string>; // 베트남어 → 뜻
+  learnedWords: Map<string, string>; // 이번 판에 처음 맞혀서 도감에 들어간 단어
+}
+
+/** 단어 목록(베트남어 → 뜻)을 <ul>에 채운다. 비어 있으면 empty 문구 한 줄 */
+function fillWords(id: string, words: Map<string, string>, empty: string): void {
+  const ul = el(id);
+  ul.replaceChildren();
+  words.forEach((ko, vi) => {
+    const li = document.createElement('li');
+    const a = document.createElement('b');
+    a.lang = 'vi';
+    a.textContent = vi;
+    const span = document.createElement('span');
+    span.textContent = ko;
+    li.append(a, span);
+    ul.appendChild(li);
+  });
+  if (!words.size) {
+    const li = document.createElement('li');
+    li.className = 'empty';
+    li.textContent = empty;
+    ul.appendChild(li);
+  }
 }
 
 export const isOverlayOpen = (): boolean => !el('startOv').hidden || !el('endOv').hidden;
@@ -50,22 +73,9 @@ export function showEnd(s: EndSummary): void {
     div.append(dt, dd);
     dl.appendChild(div);
   }
-  const ul = el('endWrongs');
-  ul.replaceChildren();
-  s.wrongWords.forEach((ko, vi) => {
-    const li = document.createElement('li');
-    const a = document.createElement('b');
-    a.lang = 'vi';
-    a.textContent = vi;
-    const span = document.createElement('span');
-    span.textContent = ko;
-    li.append(a, span);
-    ul.appendChild(li);
-  });
-  if (!s.wrongWords.size) {
-    const li = document.createElement('li');
-    li.textContent = '이번 판에 틀린 단어가 없어요';
-    ul.appendChild(li);
-  }
+  el('endLearnedHead').textContent = `새로 배운 단어 ${s.learnedWords.size}개`;
+  fillWords('endLearned', s.learnedWords, '이번 판에 새로 배운 단어가 없어요');
+  el('endWrongsHead').textContent = `틀린 단어 ${s.wrongWords.size}개`;
+  fillWords('endWrongs', s.wrongWords, '틀린 단어가 없어요');
   el('endOv').hidden = false;
 }

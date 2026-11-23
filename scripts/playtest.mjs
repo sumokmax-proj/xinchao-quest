@@ -11,6 +11,7 @@
  *   --dodge 0.7        빨간 예고를 보고 피하는 확률 (기본 0.7. 1이면 완벽한 고수, 0이면 전혀 안 피함)
  *   --timeout 360      한 판 최대 시간(초). 넘기면 "시간 초과"로 기록 (기본 360)
  *   --headed           브라우저 창을 띄워서 보기
+ *   --keep-save        판마다 저장을 지우지 않고 이어서 플레이 (진행 저장 확인용. 기본은 매 판 새로 시작)
  *
  * 처음 한 번은 브라우저 설치가 필요할 수 있다: npx playwright install chromium
  */
@@ -29,6 +30,7 @@ const WRONG_RATE = Number(opt('wrong-rate', 0.2));
 const DODGE = Number(opt('dodge', 0.7));
 const TIMEOUT = Number(opt('timeout', 360)) * 1000;
 const HEADED = args.includes('--headed');
+const KEEP_SAVE = args.includes('--keep-save');
 
 const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
 const OUT = join('playtest-output', stamp);
@@ -111,8 +113,8 @@ async function launch() {
   }
 }
 
-async function playOnce(browser, url, run) {
-  const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+async function playOnce(context, url, run) {
+  const page = await context.newPage();
   const errors = [];
   page.on('pageerror', (e) => errors.push(String(e.message)));
   page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
@@ -125,11 +127,14 @@ async function playOnce(browser, url, run) {
 
   await page.goto(url);
   await page.waitForFunction(() => window.__game !== undefined, null, { timeout: 30000 });
-  await page.evaluate(() => {
-    try { localStorage.clear(); } catch {}
-  });
-  await page.reload();
-  await page.waitForFunction(() => window.__game !== undefined, null, { timeout: 30000 });
+  if (!KEEP_SAVE || run === 1) {
+    await page.evaluate(() => {
+      try { localStorage.clear(); } catch {}
+    });
+    await page.reload();
+    await page.waitForFunction(() => window.__game !== undefined, null, { timeout: 30000 });
+  }
+  const before = await page.evaluate(() => window.__game.debugSnapshot().profile);
   const webgl = !(await page.isVisible('#err'));
   await shot('start');
   if (!webgl) {
@@ -188,6 +193,9 @@ async function playOnce(browser, url, run) {
     gold: final.player.gold,
     kills: final.stats.kills,
     quiz: `${final.stats.correct} / ${final.stats.quiz}`,
+    learned: final.stats.learned,
+    profileBefore: before,
+    profileAfter: final.profile,
     hurt: final.stats.hurt,
     minHpRatio: Math.round((Math.max(0, minHp) / final.player.maxHp) * 100) + '%',
     fps,
@@ -201,11 +209,12 @@ const server = await createServer({ logLevel: 'error', server: { port: 5199, str
 await server.listen();
 const url = server.resolvedUrls.local[0];
 const browser = await launch();
+const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
 const results = [];
 try {
   for (let i = 1; i <= RUNS; i++) {
     console.log(`플레이 ${i}/${RUNS} ...`);
-    const r = await playOnce(browser, url, i);
+    const r = await playOnce(context, url, i);
     console.log(`  → ${r.result}, ${r.seconds ?? '-'}초, 웨이브 ${r.waveReached ?? '-'}, 맞음 ${r.hurt ?? '-'}회, 오류 ${r.errors.length}개`);
     results.push(r);
   }
@@ -218,11 +227,14 @@ const label = { win: '클리어', lose: '쓰러짐', timeout: '시간 초과', '
 const md = [
   `# 자동 플레이 점검 ${stamp}`,
   '',
-  `봇 설정: 퀴즈 오답률 ${WRONG_RATE * 100}%, 예고 피하는 확률 ${DODGE * 100}%, 한 판 최대 ${TIMEOUT / 1000}초, ${RUNS}판`,
+  `봇 설정: 퀴즈 오답률 ${WRONG_RATE * 100}%, 예고 피하는 확률 ${DODGE * 100}%, 한 판 최대 ${TIMEOUT / 1000}초, ${RUNS}판${KEEP_SAVE ? ', 저장 이어서' : ''}`,
   '',
-  '| 판 | 결과 | 걸린 시간(초) | 웨이브 | 레벨 | 처치 | 퀴즈 정답 | 맞은 횟수 | 최저 HP | FPS | 오류 |',
-  '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |',
-  ...results.map((r) => `| ${r.run} | ${label[r.result] ?? r.result} | ${r.seconds ?? '-'} | ${r.waveReached ?? '-'} | ${r.level ?? '-'} | ${r.kills ?? '-'} | ${r.quiz ?? '-'} | ${r.hurt ?? '-'} | ${r.minHpRatio ?? '-'} | ${r.fps ?? '-'} | ${r.errors.length} |`),
+  '| 판 | 결과 | 걸린 시간(초) | 웨이브 | 레벨 | 처치 | 퀴즈 정답 | 새 단어 | 맞은 횟수 | 최저 HP | FPS | 오류 |',
+  '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |',
+  ...results.map((r) => `| ${r.run} | ${label[r.result] ?? r.result} | ${r.seconds ?? '-'} | ${r.waveReached ?? '-'} | ${r.level ?? '-'} | ${r.kills ?? '-'} | ${r.quiz ?? '-'} | ${r.learned ?? '-'} | ${r.hurt ?? '-'} | ${r.minHpRatio ?? '-'} | ${r.fps ?? '-'} | ${r.errors.length} |`),
+  '',
+  '## 저장된 진행 (판 시작 → 끝)',
+  ...results.map((r) => (r.profileBefore && r.profileAfter ? `- 판 ${r.run}: Lv ${r.profileBefore.level}→${r.profileAfter.level}, 골드 ${r.profileBefore.gold}→${r.profileAfter.gold}, 누적 처치 ${r.profileBefore.kills}→${r.profileAfter.kills}, 도감 ${r.profileBefore.collected}→${r.profileAfter.collected}, 판 수 ${r.profileAfter.runs}, 클리어 ${r.profileAfter.clears}` : `- 판 ${r.run}: -`)),
   '',
   'FPS는 이 PC 기준. 화면 주사율(보통 60)이 상한이다. headless는 소프트웨어 렌더링(SwiftShader)이라 실제 GPU보다 느리다. 실제 GPU로 재려면 --headed.',
   '',

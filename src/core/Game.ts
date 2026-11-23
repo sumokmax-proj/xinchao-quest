@@ -21,6 +21,7 @@ import { banner, toast } from '../ui/Toasts';
 import { CameraRig } from '../world/CameraRig';
 import { DIRS, Grid, findSpawnCell, isCellFree, type Cell, type Dir, type MapData } from '../world/Grid';
 import { defaultRng } from './random';
+import { dexProgress, heroStatsFor, recordAnswer } from './Progress';
 import { loadSave, persist, type SaveData } from './Save';
 import { Timers } from './Timers';
 import { WaveProgress, type WaveData } from './Waves';
@@ -38,7 +39,9 @@ export interface DebugSnapshot {
   goblins: { c: number; r: number; hp: number; maxHp: number; state: string; boss: boolean; telegraph: Cell | null }[];
   quiz: { answerSide: 0 | 1; acceptsInput: boolean; prompt: string } | null;
   wave: { index: number; total: number };
-  stats: { quiz: number; correct: number; kills: number; hurt: number };
+  stats: { quiz: number; correct: number; kills: number; hurt: number; learned: number };
+  /** 저장된 누적 진행 (판이 끝나도 남음) */
+  profile: { level: number; gold: number; kills: number; correct: number; answered: number; runs: number; clears: number; collected: number };
 }
 
 interface QuizRun {
@@ -67,7 +70,7 @@ export class Game {
   private held: Dir[] = []; // 누르고 있는 방향 (마지막이 우선)
   private queued: Dir | null = null; // 한 번 톡 누른 방향 (이동 중이어도 다음 칸에서 실행)
   private hintHidden = false;
-  private run = { quiz: 0, correct: 0, wrong: new Map<string, string>(), kills: 0, start: 0 };
+  private run = { quiz: 0, correct: 0, wrong: new Map<string, string>(), learned: new Map<string, string>(), kills: 0, start: 0 };
   private result: 'win' | 'lose' | null = null;
   private hurtCount = 0;
 
@@ -97,9 +100,10 @@ export class Game {
     this.particles.clear();
     this.timers.clear();
     this.endQuiz();
-    this.player.reset(MAP.start);
+    const pr = this.save.profile;
+    this.player.reset(MAP.start, { ...heroStatsFor(pr.level, pr.exp), gold: pr.gold });
     this.cam.snapTo(this.player.x, this.player.z);
-    this.run = { quiz: 0, correct: 0, wrong: new Map(), kills: 0, start: performance.now() };
+    this.run = { quiz: 0, correct: 0, wrong: new Map(), learned: new Map(), kills: 0, start: performance.now() };
     this.result = null;
     this.hurtCount = 0;
     this.waves.reset();
@@ -112,7 +116,7 @@ export class Game {
   start(): void {
     unlockAudio();
     hideStart();
-    this.running = true;
+    this.beginRun();
     banner('웨이브 1', WAVES[0].label);
   }
 
@@ -120,13 +124,23 @@ export class Game {
     unlockAudio();
     hideEnd();
     this.reset();
-    this.running = true;
+    this.beginRun();
     banner('웨이브 1', WAVES[0].label);
+  }
+
+  private beginRun(): void {
+    this.running = true;
+    this.save.profile = { ...this.save.profile, runs: this.save.profile.runs + 1 };
+    persist(this.save);
   }
 
   private finish(win: boolean): void {
     this.running = false;
     this.result = win ? 'win' : 'lose';
+    if (win) {
+      this.save.profile = { ...this.save.profile, clears: this.save.profile.clears + 1 };
+      persist(this.save);
+    }
     const summary: EndSummary = {
       win,
       correct: this.run.correct,
@@ -135,6 +149,7 @@ export class Game {
       level: this.player.stats.level,
       seconds: Math.round((performance.now() - this.run.start) / 1000),
       wrongWords: this.run.wrong,
+      learnedWords: this.run.learned,
     };
     showEnd(summary);
   }
@@ -326,6 +341,11 @@ export class Game {
     this.run.quiz++;
     this.bubble.markResult(q, side);
     this.save.wrong = updateWrongNote(this.save.wrong, q.word.vi, ok);
+    const rec = recordAnswer(this.save.dex, q.word.vi, ok, Date.now());
+    this.save.dex = rec.dex;
+    if (rec.newlyLearned) this.run.learned.set(q.word.vi, q.word.ko);
+    const pr = this.save.profile;
+    this.save.profile = { ...pr, answered: pr.answered + 1, correct: pr.correct + (ok ? 1 : 0) };
     if (side !== null) {
       // 시간 초과가 아니라 직접 답했으면, 답하는 법을 안 것으로 보고 다음부터 깜빡이지 않음
       this.save.answeredQuiz = true;
@@ -380,6 +400,8 @@ export class Game {
       sfx.level();
     }
     floatText(this.cam.camera, g.x, 1.6, g.z, `+${exp} EXP · +${fmtDong(gold)}`, '');
+    this.save.profile = { ...this.save.profile, level: p.stats.level, exp: p.stats.exp, gold: p.stats.gold, kills: this.save.profile.kills + 1 };
+    persist(this.save);
     this.updateHud();
   }
 
@@ -480,7 +502,8 @@ export class Game {
           }
         : null,
       wave: { index: this.waves.index, total: WAVES.length },
-      stats: { quiz: this.run.quiz, correct: this.run.correct, kills: this.run.kills, hurt: this.hurtCount },
+      stats: { quiz: this.run.quiz, correct: this.run.correct, kills: this.run.kills, hurt: this.hurtCount, learned: this.run.learned.size },
+      profile: { ...this.save.profile, collected: dexProgress(this.save.dex, WORDS).collected },
     };
   }
 

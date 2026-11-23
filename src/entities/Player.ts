@@ -28,7 +28,8 @@ export class Player {
     return { level: 1, exp: 0, attack: CONFIG.player.attack, hp: CONFIG.player.maxHp, maxHp: CONFIG.player.maxHp, gold: 0 };
   }
 
-  reset(start: Cell): void {
+  /** 판 시작: 시작 칸으로, 능력치는 저장된 진행(레벨·골드)에서 받아온다 */
+  reset(start: Cell, stats: HeroStats & { gold: number } = Player.freshStats()): void {
     this.c = start.c;
     this.r = start.r;
     this.x = this.fromX = this.grid.worldX(start.c);
@@ -38,7 +39,7 @@ export class Player {
     this.attackCooldown = 0;
     this.swingT = 1;
     this.lungeT = 1;
-    this.stats = Player.freshStats();
+    this.stats = { ...stats };
     this.model.group.position.set(this.x, 0, this.z);
     this.model.group.rotation.y = Math.PI;
   }

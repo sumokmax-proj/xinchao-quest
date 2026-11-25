@@ -52,6 +52,13 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
 .setrow b{color:var(--gold)}
 .setrow.danger{color:#f2a497}
 .setrow.danger.armed{background:var(--red);color:#fff}
+.setrow small{color:var(--muted)}
+.note.version{padding:8px;cursor:default}
+/* 개발용 연출 스위치 */
+#fxOv{z-index:13;background:rgba(10,20,17,.9)}
+.fxall,.fxgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.fxsw{min-height:46px;padding:6px 8px;border-radius:12px;border:2px solid rgba(255,255,255,.16);background:rgba(14,28,24,.8);color:var(--muted);font-size:13px;opacity:.6}
+.fxsw.on{border-color:var(--gold);color:var(--ink);opacity:1}
 .tool{background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:5px 9px;font-size:11px}
 .hint{position:absolute;z-index:5;left:50%;bottom:calc(214px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--panel);border-radius:999px;padding:6px 12px;font-size:12px;color:var(--muted);white-space:nowrap;transition:opacity .4s}
 .banner{position:absolute;z-index:6;left:0;right:0;top:34%;text-align:center;font-family:var(--font-display);font-size:34px;color:var(--gold);-webkit-text-stroke:5px #2a1a00;paint-order:stroke fill;text-shadow:0 3px 0 #000;pointer-events:none;animation:pop 1.6s ease-out forwards}

@@ -199,16 +199,32 @@ export const CONFIG = {
   feel: {
     knockback: 0.22, // 맞은 고블린이 밀려나는 거리
     hitFlash: 0.12,
-    shakeHit: 0.08,
+    shakeHit: 0, // 일반 타격은 흔들지 않는다 → 흔들림이 "센 한 방" 신호가 되게
     shakeCrit: 0.16,
     shakeHurt: 0.22,
     shakeKill: 0.18,
     shakeBossKill: 0.35,
+    shakeBossAttack: 0.2, // 고블린 왕의 공격이 떨어질 때 (빗나가도)
     gameOverDelay: 0.8,
     hitStop: 0.045, // 때린 순간 화면이 아주 잠깐 멈춤 (몬스터·동작만. 플레이어 이동·공격 간격은 그대로)
     hitStopCrit: 0.08,
     hitStopKill: 0.1,
     hitSparks: 6, // 때릴 때 튀는 불꽃 수 (크리티컬은 2배)
+    sfxPitchVary: 0.05, // 전투 효과음 높낮이를 칠 때마다 ±5% 바꿈
+    // 정답 마무리 일격: 몬스터·동작이 잠깐 느려짐 (플레이어 이동·공격 간격·퀴즈 시간은 그대로)
+    slowMoScale: 0.25,
+    slowMoTime: 0.45, // 실제 시간 기준
+    slowMoBossTime: 0.75, // 대장·고블린 왕
+    finisherZoom: 1.14, // 마무리 일격 동안 카메라 확대 배율
+    // 쇼크웨이브: 바닥으로 퍼지는 원 띠 (반지름은 칸 수)
+    shockwaveTime: 0.5,
+    shockwaveBossKill: 2.8,
+    shockwaveKingKill: 4.2,
+    shockwaveSlam: 2.4, // 고블린 왕 내려찍기
+    // 진동(ms). 지원하는 기기만. [진동, 쉼, 진동] 형식
+    vibrateHurt: [40],
+    vibrateKill: [20],
+    vibrateBossKill: [40, 50, 90],
   },
 
   render: {

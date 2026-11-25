@@ -89,10 +89,22 @@
     <button type="button" class="btn ghost setrow" id="btnSound"></button>
     <button type="button" class="btn ghost setrow" id="btnMusic"></button>
     <button type="button" class="btn ghost setrow" id="btnPixel"></button>
+    <button type="button" class="btn ghost setrow" id="btnVibrate" hidden></button>
+    <button type="button" class="btn ghost setrow" id="btnFxMenu" hidden>연출 스위치 <small>개발용</small></button>
     <button type="button" class="btn ghost setrow danger" id="btnReset">진행 초기화</button>
     <p class="note" id="resetNote"></p>
     <button type="button" class="btn" id="btnSetClose">계속하기</button>
-    <p class="note" id="setVersion"></p>
+    <p class="note version" id="setVersion"></p>
+  </section>
+
+  <section class="overlay" id="fxOv" hidden>
+    <h2>연출 스위치</h2>
+    <div class="fxall">
+      <button type="button" class="btn ghost" id="btnFxNone">전부 끄기</button>
+      <button type="button" class="btn ghost" id="btnFxAll">전부 켜기</button>
+    </div>
+    <div class="fxgrid" id="fxList"></div>
+    <button type="button" class="btn" id="btnFxClose">계속하기</button>
   </section>
 
   <section class="overlay book" id="shopOv" hidden>

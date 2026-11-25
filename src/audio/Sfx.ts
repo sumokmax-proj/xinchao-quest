@@ -19,7 +19,19 @@ export function unlockAudio(): void {
   }
 }
 
-function tone(freqs: number[], dur = 0.07, type: OscillatorType = 'square', vol = 0.045): void {
+let pitchVary = 0;
+
+/** 전투 효과음의 높낮이를 얼마나 흔들지 (0.05 = ±5%, 0 = 끔) */
+export function setPitchVary(amount: number): void {
+  pitchVary = amount;
+}
+
+/** r(0~1)로 정하는 높낮이 배율: 1 - amount ~ 1 + amount */
+export const pitchFactor = (r: number, amount: number): number => 1 + (r * 2 - 1) * amount;
+
+const vary = (): number => pitchFactor(Math.random(), pitchVary);
+
+function tone(freqs: number[], dur = 0.07, type: OscillatorType = 'square', vol = 0.045, pitch = 1): void {
   if (!actx || !enabled) return;
   try {
     let t = actx.currentTime;
@@ -27,7 +39,7 @@ function tone(freqs: number[], dur = 0.07, type: OscillatorType = 'square', vol 
       const o = actx.createOscillator();
       const g = actx.createGain();
       o.type = type;
-      o.frequency.value = f;
+      o.frequency.value = f * pitch;
       g.gain.setValueAtTime(vol, t);
       g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
       o.connect(g);
@@ -74,17 +86,20 @@ export const sfx = {
   coin: () => tone([988, 1319], 0.06, 'square', 0.035),
   page: () => noise(0.08, 0.035, 3200),
   kill: () => {
-    noise(0.12, 0.07, 900);
-    tone([660, 990, 1320], 0.05, 'triangle', 0.05);
+    const p = vary();
+    noise(0.12, 0.07, 900 * p);
+    tone([660, 990, 1320], 0.05, 'triangle', 0.05, p);
   },
-  swing: () => tone([520, 300], 0.05, 'triangle', 0.05),
+  swing: () => tone([520, 300], 0.05, 'triangle', 0.05, vary()),
   hit: () => {
-    noise(0.05, 0.06, 1400);
-    tone([330, 500], 0.06);
+    const p = vary();
+    noise(0.05, 0.06, 1400 * p);
+    tone([330, 500], 0.06, 'square', 0.045, p);
   },
   crit: () => {
-    noise(0.08, 0.08, 2400);
-    tone([520, 780, 1040], 0.06);
+    const p = vary();
+    noise(0.08, 0.08, 2400 * p);
+    tone([520, 780, 1040], 0.06, 'square', 0.045, p);
   },
   hurt: () => tone([200, 120], 0.12, 'sawtooth', 0.05),
   quiz: () => tone([660, 880], 0.08, 'triangle', 0.06),

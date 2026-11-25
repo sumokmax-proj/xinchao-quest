@@ -3,6 +3,9 @@ import { CONFIG } from './config';
 import { Game } from './core/Game';
 import { bindInput } from './core/Input';
 import { createRenderer } from './render/scene';
+import { canVibrate } from './audio/Haptics';
+import { fxOn } from './core/Fx';
+import { renderFxMenu } from './ui/FxMenu';
 import { el } from './ui/dom';
 import { Hud } from './ui/Hud';
 import { isOverlayOpen, showError } from './ui/Overlays';
@@ -45,7 +48,7 @@ async function boot(): Promise<void> {
     if (landscape.matches) {
       game.paused = true;
       game.releaseAll();
-    } else if (el('setOv').hidden) game.paused = false;
+    } else if (el('setOv').hidden && el('fxOv').hidden) game.paused = false;
   };
   landscape.addEventListener('change', onRotate);
   onRotate();
@@ -73,7 +76,50 @@ async function boot(): Promise<void> {
     el('btnReset').classList.remove('armed');
     el('resetNote').textContent = '';
   };
+  /** 설정 창의 진동 버튼(지원 기기만)과 개발용 버튼(열었을 때만) */
+  const syncSettings = () => {
+    el('btnVibrate').hidden = !canVibrate();
+    el('btnVibrate').innerHTML = `진동 <b>${fxOn(game.settings.fxOff, 'vibrate') ? '켬' : '끔'}</b>`;
+    el('btnFxMenu').hidden = !game.settings.devOpen;
+  };
+  const drawFxMenu = () =>
+    renderFxMenu(game.settings.fxOff, (id) => {
+      game.toggleEffect(id);
+      drawFxMenu();
+    });
+  el('btnVibrate').addEventListener('click', () => {
+    game.toggleEffect('vibrate');
+    syncSettings();
+  });
+  // 버전 글자를 3초 안에 5번 누르면 개발용 "연출 스위치"가 열린다 (일반 플레이어에게는 안 보임)
+  let versionTaps: number[] = [];
+  el('setVersion').addEventListener('click', () => {
+    const now = performance.now();
+    versionTaps = [...versionTaps.filter((t) => now - t < 3000), now];
+    if (versionTaps.length >= 5) {
+      game.openDevMenu();
+      syncSettings();
+    }
+  });
+  el('btnFxMenu').addEventListener('click', () => {
+    el('setOv').hidden = true;
+    el('fxOv').hidden = false;
+    drawFxMenu();
+  });
+  el('btnFxAll').addEventListener('click', () => {
+    game.setAllEffects(true);
+    drawFxMenu();
+  });
+  el('btnFxNone').addEventListener('click', () => {
+    game.setAllEffects(false);
+    drawFxMenu();
+  });
+  el('btnFxClose').addEventListener('click', () => {
+    el('fxOv').hidden = true;
+    game.paused = false;
+  });
   el('btnSettings').addEventListener('click', () => {
+    syncSettings();
     el('setOv').hidden = false;
     game.paused = true;
     game.releaseAll();

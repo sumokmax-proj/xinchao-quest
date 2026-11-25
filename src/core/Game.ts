@@ -8,13 +8,17 @@ import { decideBump, faceAngle } from '../combat/BumpAttack';
 import { isCorrect, makeQuestion, resolveQuiz, updateWrongNote, type Question, type Word } from '../combat/QuizSystem';
 import { applyDamage, gainExp, recoverHp, rollDamage } from '../combat/rules';
 import { crossedPhase, phaseBonusHp } from '../combat/BossPhases';
-import { sfx, setSoundEnabled, unlockAudio } from '../audio/Sfx';
+import { sfx, setPitchVary, setSoundEnabled, unlockAudio } from '../audio/Sfx';
+import { vibrate } from '../audio/Haptics';
+import { fxOn, setAllFx, toggleFx, type FxId } from './Fx';
+import { TimeFx } from './TimeFx';
 import { initVoice, setVoiceEnabled, speak } from '../audio/Voice';
 import { musicState, playMusic, setMusicEnabled } from '../audio/Music';
 import { Goblin } from '../entities/Goblin';
 import { Player } from '../entities/Player';
 import { makeHero } from '../render/models';
-import { Particles } from '../render/Effects';
+import { Particles, Shockwaves } from '../render/Effects';
+import type { AttackPattern } from '../combat/Telegraph';
 import { applyTheme, buildMap, createScene, disposeMap } from '../render/scene';
 import { getTheme } from '../render/themes';
 import { MONSTER_COLOR } from '../render/monsters';
@@ -61,7 +65,8 @@ export interface DebugSnapshot {
   map: string[];
   player: { c: number; r: number; hp: number; maxHp: number; level: number; gold: number; ready: boolean };
   goblins: { kind: string; c: number; r: number; hp: number; maxHp: number; state: string; boss: boolean; telegraph: Cell[] }[];
-  quiz: { answerSide: 0 | 1; acceptsInput: boolean; prompt: string; kind: string; phase: boolean } | null;
+  quiz: { answerSide: 0 | 1; acceptsInput: boolean; locked: boolean; timeLeft: number; limit: number; prompt: string; kind: string; phase: boolean } | null;
+  fx: { off: string[]; slowMo: boolean; shockwaves: number };
   wave: { index: number; total: number };
   stage: { index: number; id: string; total: number; unlocked: number };
   items: Record<string, number>;
@@ -128,10 +133,12 @@ export class Game {
   private run = { quiz: 0, correct: 0, wrong: new Map<string, string>(), learned: new Map<string, string>(), kills: 0, start: 0 };
   private result: 'win' | 'lose' | null = null;
   private hurtCount = 0;
-  private hitStop = 0; // 남은 히트스톱 시간
+  private readonly timeFx = new TimeFx(); // 히트스톱·슬로 모션
+  private readonly shockwaves: Shockwaves;
 
   constructor() {
     this.particles = new Particles(this.scene);
+    this.shockwaves = new Shockwaves(this.scene);
     const hero = makeHero();
     this.scene.add(hero.group);
     this.stageIndex = lastUnlocked(STAGES, this.save.stages);
@@ -149,6 +156,7 @@ export class Game {
     setSoundEnabled(this.save.sound);
     setVoiceEnabled(this.save.sound);
     setMusicEnabled(this.save.sound && this.save.music);
+    this.applyFx();
     initVoice(() => this.updateStartNote());
     this.updateStartNote();
     if (this.mode === 'field') this.reset();
@@ -213,6 +221,9 @@ export class Game {
     this.goblins.forEach((g) => g.dispose());
     this.goblins = [];
     this.particles.clear();
+    this.shockwaves.clear();
+    this.timeFx.reset();
+    this.cam.resetFx();
     this.timers.clear();
     this.endQuiz();
     const pr = this.save.profile;
@@ -319,6 +330,9 @@ export class Game {
     this.cam.snapTo(this.player.x, this.player.z);
     this.goblins.forEach((g) => g.dispose());
     this.goblins = [];
+    this.shockwaves.clear();
+    this.timeFx.reset();
+    this.cam.resetFx();
     this.timers.clear();
     this.endQuiz();
     this.result = null;
@@ -564,6 +578,52 @@ export class Game {
     setStartProfile(this.save.profile, collected, total, wc, fmtDong(this.save.profile.gold));
   }
 
+  /* ---------- 타격 연출 (연출 스위치) ---------- */
+
+  private fxo(id: FxId): boolean {
+    return fxOn(this.save.fxOff, id);
+  }
+
+  private applyFx(): void {
+    setPitchVary(this.fxo('pitch') ? CONFIG.feel.sfxPitchVary : 0);
+  }
+
+  toggleEffect(id: FxId): void {
+    this.save.fxOff = toggleFx(this.save.fxOff, id);
+    this.applyFx();
+    persist(this.save);
+  }
+
+  setAllEffects(on: boolean): void {
+    this.save.fxOff = setAllFx(on);
+    this.applyFx();
+    persist(this.save);
+  }
+
+  openDevMenu(): void {
+    this.save.devOpen = true;
+    persist(this.save);
+  }
+
+  private shake(amount: number): void {
+    if (this.fxo('shake') && amount > 0) this.cam.shake(amount);
+  }
+
+  private buzz(pattern: readonly number[]): void {
+    if (this.fxo('vibrate')) vibrate(pattern);
+  }
+
+  private wave(x: number, z: number, radius: number, color: string): void {
+    if (this.fxo('shockwave')) this.shockwaves.add(x, z, radius, CONFIG.feel.shockwaveTime, color);
+  }
+
+  /** 몬스터의 공격이 떨어진 순간: 고블린 왕은 빗나가도 땅이 울린다 */
+  private onStrike(g: Goblin, pattern: AttackPattern): void {
+    if (g.kind !== 'king') return;
+    this.shake(CONFIG.feel.shakeBossAttack);
+    if (pattern === 'slam') this.wave(g.x, g.z, CONFIG.feel.shockwaveSlam, '#ffe2a8');
+  }
+
   openBook(): void {
     this.book.open(WORDS, this.save.dex, this.save.wrong);
   }
@@ -721,13 +781,13 @@ export class Game {
     const { damage, crit } = rollDamage(p.stats.attack, this.rng);
     const hpBefore = g.hp;
     g.hp = applyDamage(g.hp, damage);
-    g.takeHit(DIRS[dir]);
-    floatText(this.cam.camera, g.x, 1.3, g.z, (crit ? '크리티컬 ' : '') + damage, crit ? 'crit' : '');
+    g.takeHit(DIRS[dir], { flash: this.fxo('flash'), knockback: this.fxo('knockback'), squash: this.fxo('squash') });
+    if (this.fxo('numbers')) floatText(this.cam.camera, g.x, 1.3, g.z, (crit ? '크리티컬 ' : '') + damage, crit ? 'crit' : '');
     if (crit) sfx.crit();
     else sfx.hit();
-    this.hitStop = Math.max(this.hitStop, crit ? CONFIG.feel.hitStopCrit : CONFIG.feel.hitStop);
-    this.particles.spark(g.x, g.z, crit ? CONFIG.feel.hitSparks * 2 : CONFIG.feel.hitSparks, crit ? '#ffdf6b' : '#ffffff');
-    this.cam.shake(crit ? CONFIG.feel.shakeCrit : CONFIG.feel.shakeHit);
+    if (this.fxo('hitStop')) this.timeFx.hitStop(crit ? CONFIG.feel.hitStopCrit : CONFIG.feel.hitStop);
+    if (this.fxo('sparks')) this.particles.spark(g.x, g.z, crit ? CONFIG.feel.hitSparks * 2 : CONFIG.feel.hitSparks, crit ? '#ffdf6b' : '#ffffff');
+    this.shake(crit ? CONFIG.feel.shakeCrit : CONFIG.feel.shakeHit);
     if (g.hp <= 0) this.startQuiz(g, false);
     else if (g.stats.phases.length) {
       const ph = crossedPhase(hpBefore, g.hp, g.maxHp, g.stats.phases, g.phasesDone);
@@ -745,9 +805,10 @@ export class Game {
     if (p.stats.hp > 0) p.hurt();
     else p.die();
     this.hurtCount++;
-    floatText(this.cam.camera, p.x, 1.3, p.z, '-' + damage, 'hurtn');
+    if (this.fxo('numbers')) floatText(this.cam.camera, p.x, 1.3, p.z, '-' + damage, 'hurtn');
     sfx.hurt();
-    this.cam.shake(CONFIG.feel.shakeHurt);
+    this.shake(CONFIG.feel.shakeHurt);
+    this.buzz(CONFIG.feel.vibrateHurt);
     const h = el('hurt');
     h.classList.add('on');
     setTimeout(() => h.classList.remove('on'), 60);
@@ -763,6 +824,7 @@ export class Game {
 
   private startQuiz(g: Goblin, phase: boolean): void {
     g.daze();
+    this.timeFx.cancelSlowMo(); // 퀴즈 중 다른 몬스터 속도는 퀴즈 규칙(0.25배)만 적용
     this.held = [];
     this.queued = null;
     const limit = CONFIG.quiz.timeLimit + this.fx.quizTime + this.stageQuizTime;
@@ -847,7 +909,7 @@ export class Game {
       this.timers.after(CONFIG.quiz.recoverDelay, () => {
         const hp = ok ? phaseBonusHp(g.hp, g.maxHp, CONFIG.quiz.phaseBonus) : Math.min(g.maxHp, g.hp + recoverHp(g.maxHp));
         floatText(this.cam.camera, g.x, 1.5 * g.stats.scale, g.z, ok ? '-' + (g.hp - hp) : '+' + (hp - g.hp), ok ? 'crit' : 'heal');
-        if (ok) this.cam.shake(CONFIG.feel.shakeCrit);
+        if (ok) this.shake(CONFIG.feel.shakeCrit);
         g.recover(hp, g.need);
         this.endQuiz();
       });
@@ -898,9 +960,15 @@ export class Game {
     sfx.kill();
     g.kill();
     this.run.kills++;
-    this.particles.burst(g.x, g.z, g.boss ? 26 : 14, MONSTER_COLOR[g.kind]);
-    this.cam.shake(g.boss ? CONFIG.feel.shakeBossKill : CONFIG.feel.shakeKill);
-    this.hitStop = Math.max(this.hitStop, CONFIG.feel.hitStopKill);
+    if (this.fxo('debris')) this.particles.burst(g.x, g.z, g.boss ? 26 : 14, MONSTER_COLOR[g.kind]);
+    this.shake(g.boss ? CONFIG.feel.shakeBossKill : CONFIG.feel.shakeKill);
+    if (this.fxo('hitStop')) this.timeFx.hitStop(CONFIG.feel.hitStopKill);
+    // 말로 끝낸 순간을 가장 크게: 느려지고, 가까이 보여 준다
+    const slow = g.boss ? CONFIG.feel.slowMoBossTime : CONFIG.feel.slowMoTime;
+    if (this.fxo('slowMo')) this.timeFx.slowMo(slow, CONFIG.feel.slowMoScale);
+    if (this.fxo('zoom')) this.cam.punch(CONFIG.feel.finisherZoom, slow);
+    if (g.boss) this.wave(g.x, g.z, g.kind === 'king' ? CONFIG.feel.shockwaveKingKill : CONFIG.feel.shockwaveBossKill, '#ffd45e');
+    this.buzz(g.boss ? CONFIG.feel.vibrateBossKill : CONFIG.feel.vibrateKill);
     const { exp, gold } = g.stats;
     const p = this.player;
     p.stats.gold += gold;
@@ -943,15 +1011,15 @@ export class Game {
       if (dir && this.tryAct(dir)) this.queued = null;
     }
 
-    // 히트스톱: 때린 순간 몬스터·동작만 아주 잠깐 거의 멈춘다 (플레이어 이동·공격 간격 계산은 위에서 이미 끝남)
-    const vis = this.hitStop > 0 ? dt * 0.06 : dt;
-    if (this.hitStop > 0) this.hitStop -= dt;
+    // 연출 시간: 히트스톱·슬로 모션은 몬스터와 보이는 동작에만. 위의 플레이어, 아래의 퀴즈 제한시간은 실제 시간
+    const { world, anim } = this.timeFx.step(dt);
     const ctx = {
       running: this.running,
       player: p.cell,
       playerHp: p.stats.hp,
       isFree: (c: number, r: number, self: Goblin) => this.freeFor(c, r, self),
       onHitPlayer: (damage: number) => this.hurtPlayer(damage),
+      onStrike: (g: Goblin, pattern: AttackPattern) => this.onStrike(g, pattern),
       nowMs,
     };
     for (const g of this.goblins) {
@@ -959,7 +1027,7 @@ export class Game {
       const slow = this.quiz && this.quiz.goblin !== g ? CONFIG.quiz.othersSpeed : 1;
       ctx.playerHp = p.stats.hp;
       ctx.running = this.running;
-      g.update(vis * slow, ctx);
+      g.update(world * slow, anim * slow, ctx);
     }
     this.goblins = this.goblins.filter((g) => !g.gone);
 
@@ -968,7 +1036,7 @@ export class Game {
       if (this.quiz.timeLeft <= 0) this.resolve(null);
     }
 
-    p.animate(vis, nowMs);
+    p.animate(anim, nowMs);
 
     if (this.running && this.mode === 'field') {
       const ev = this.waves.check(this.goblins.length);
@@ -993,7 +1061,8 @@ export class Game {
       if (n.rig) n.rig.update(dt);
       else n.group.position.y = Math.abs(Math.sin(nowMs / 400 + n.npc.at.c)) * 0.03;
     }
-    this.particles.update(dt);
+    this.particles.update(anim);
+    this.shockwaves.update(anim);
     this.cam.update(dt, p);
   }
 
@@ -1066,6 +1135,9 @@ export class Game {
         ? {
             answerSide: q.question.options.indexOf(q.question.answer) as 0 | 1,
             acceptsInput: !q.locked && performance.now() >= q.armedAt,
+            locked: q.locked,
+            timeLeft: q.timeLeft,
+            limit: q.limit,
             prompt: q.question.prompt,
             kind: q.question.kind,
             phase: q.phase,
@@ -1078,6 +1150,7 @@ export class Game {
       dialog: { open: this.dialog.isOpen, asking: this.dialog.asking, answer: this.talkAnswer },
       npcs: this.npcs.map((n) => ({ id: n.npc.id, c: n.npc.at.c, r: n.npc.at.r, role: n.npc.role })),
       music: musicState(),
+      fx: { off: [...this.save.fxOff], slowMo: this.timeFx.slowing, shockwaves: this.shockwaves.count },
       overlay: ['shopOv', 'bookOv', 'stageOv', 'endOv', 'startOv'].find((id) => !el(id).hidden) ?? null,
       items: { ...this.save.inventory.items },
       gear: this.save.inventory.gear.slice(),

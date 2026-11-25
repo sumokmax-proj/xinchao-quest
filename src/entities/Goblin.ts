@@ -20,6 +20,8 @@ export interface GoblinContext {
   playerHp: number;
   isFree: (c: number, r: number, self: Goblin) => boolean;
   onHitPlayer: (damage: number) => void;
+  /** 예고가 끝나 공격이 떨어진 순간 (빗나가도). 쇼크웨이브 같은 연출용 */
+  onStrike: (self: Goblin, pattern: AttackPattern) => void;
   nowMs: number;
 }
 
@@ -42,7 +44,7 @@ export class Goblin {
   state: GoblinState = 'idle';
   moveCooldown: number;
   attackCooldown: number;
-  private tele: { state: TelegraphState; meshes: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>[] } | null = null;
+  private tele: { pattern: AttackPattern; state: TelegraphState; meshes: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>[] } | null = null;
   private slamNext = false; // 고블린 왕: 휘두르기와 내려찍기를 번갈아
   private flashT = 0;
   private knockX = 0;
@@ -93,12 +95,13 @@ export class Goblin {
     return this.state !== 'dead';
   }
 
-  /** 맞았을 때: 하얗게 번쩍, 맞은 방향으로 살짝 밀림 */
-  takeHit(dir: Step): void {
-    this.flashT = CONFIG.feel.hitFlash;
-    this.squashT = 0.18;
-    this.knockX = dir.dc * CONFIG.feel.knockback;
-    this.knockZ = dir.dr * CONFIG.feel.knockback;
+  /** 맞았을 때: 하얗게 번쩍, 맞은 방향으로 살짝 밀림, 찌그러짐 (연출 스위치로 하나씩 끌 수 있음) */
+  takeHit(dir: Step, fx = { flash: true, knockback: true, squash: true }): void {
+    if (fx.flash) this.flashT = CONFIG.feel.hitFlash;
+    if (fx.squash) this.squashT = 0.18;
+    const knock = fx.knockback ? CONFIG.feel.knockback : 0;
+    this.knockX = dir.dc * knock;
+    this.knockZ = dir.dr * knock;
   }
 
   /** HP 0 → 빈사 (퀴즈 시작) */
@@ -137,13 +140,17 @@ export class Goblin {
     this.hpLabel.remove();
   }
 
-  update(dt: number, ctx: GoblinContext): void {
+  /**
+   * dt: 몬스터의 판단·빨간 예고에 쓰는 시간 (슬로 모션 때만 느려짐).
+   * animDt: 보이는 동작에 쓰는 시간 (히트스톱 동안 거의 멈춤 → 예고 시간은 늘지 않는다). core/TimeFx.ts
+   */
+  update(dt: number, animDt: number, ctx: GoblinContext): void {
     const grp = this.model.group;
     const baseScale = this.stats.scale;
-    if (this.spawnT < 1) this.spawnT = Math.min(1, this.spawnT + dt * 3);
+    if (this.spawnT < 1) this.spawnT = Math.min(1, this.spawnT + animDt * 3);
     if (this.state === 'dead') {
       // 쓰러짐: 앞의 절반은 뒤로 벌러덩, 뒤의 절반은 작아지며 사라짐
-      this.deathT += dt * 1.8;
+      this.deathT += animDt * 1.8;
       const fall = Math.min(1, this.deathT * 2);
       grp.rotation.x = -easeOut(fall) * 1.4;
       grp.position.y = Math.sin(fall * Math.PI) * 0.25;
@@ -155,21 +162,21 @@ export class Goblin {
       return;
     }
     if (this.flashT > 0) {
-      this.flashT -= dt;
+      this.flashT -= animDt;
       const k = Math.max(0, this.flashT) * 6;
       this.model.mats.forEach((m) => m.emissive.setRGB(k, k, k));
     } else this.model.mats.forEach((m) => m.emissive.setRGB(0, 0, 0));
-    this.knockX *= Math.pow(0.0005, dt);
-    this.knockZ *= Math.pow(0.0005, dt);
+    this.knockX *= Math.pow(0.0005, animDt);
+    this.knockZ *= Math.pow(0.0005, animDt);
 
-    if (this.moveT < 1) this.moveT = Math.min(1, this.moveT + dt / this.stats.moveDuration);
+    if (this.moveT < 1) this.moveT = Math.min(1, this.moveT + animDt / this.stats.moveDuration);
     const e = easeInOut(this.moveT);
     this.x = this.fromX + (this.grid.worldX(this.c) - this.fromX) * e;
     this.z = this.fromZ + (this.grid.worldZ(this.r) - this.fromZ) * e;
     let lx = 0;
     let lz = 0;
     if (this.lungeT < 1 && this.face !== undefined) {
-      this.lungeT += dt * 4;
+      this.lungeT += animDt * 4;
       const s = Math.sin(Math.min(1, this.lungeT) * Math.PI) * 0.3;
       lx = Math.sin(this.face) * s;
       lz = Math.cos(this.face) * s;
@@ -181,10 +188,10 @@ export class Goblin {
       lz -= Math.cos(this.face) * 0.12 * windup;
     }
     grp.position.set(this.x + this.knockX + lx, this.moveT < 1 ? Math.sin(this.moveT * Math.PI) * 0.07 : 0, this.z + this.knockZ + lz);
-    if (this.face !== undefined) grp.rotation.y = lerpAngle(grp.rotation.y, this.face, Math.min(1, dt * 14));
+    if (this.face !== undefined) grp.rotation.y = lerpAngle(grp.rotation.y, this.face, Math.min(1, animDt * 14));
     this.model.club.rotation.x = this.lungeT < 1 ? 0.5 + Math.sin(Math.min(1, this.lungeT) * Math.PI) * 1.6 : 0.5 - 1.3 * windup;
     // 크기: 등장 → 숨쉬기 / 맞으면 찌그러짐 / 준비 동작 때 웅크림
-    if (this.squashT > 0) this.squashT -= dt;
+    if (this.squashT > 0) this.squashT -= animDt;
     const sq = Math.max(0, this.squashT) / 0.18;
     const breathe = this.moveT >= 1 ? Math.sin(ctx.nowMs / 260 + this.c) * 0.025 : 0;
     const s0 = baseScale * easeOut(this.spawnT);
@@ -193,7 +200,7 @@ export class Goblin {
     if (this.state === 'dazed') {
       grp.rotation.z = Math.sin(ctx.nowMs / 120) * 0.14;
       this.model.stars.visible = true;
-      this.model.stars.rotation.y += dt * 5;
+      this.model.stars.rotation.y += animDt * 5;
       return;
     }
     // 걸을 때 뒤뚱뒤뚱
@@ -212,7 +219,9 @@ export class Goblin {
       for (const m of this.tele.meshes) m.material.opacity = op;
       if (telegraphDone(t)) {
         this.lungeT = 0;
+        const pattern = this.tele.pattern;
         if (telegraphHits(t, ctx.player, ctx.playerHp)) ctx.onHitPlayer(this.stats.damage);
+        ctx.onStrike(this, pattern);
         this.clearTelegraph();
         this.attackCooldown = this.stats.attackRecover;
       }
@@ -260,7 +269,7 @@ export class Goblin {
     });
     // 내려찍기는 시간이 조금 더 걸린다 (8칸을 보고 두 칸 물러날 시간)
     const duration = pattern === 'slam' ? this.stats.telegraph * 1.25 : this.stats.telegraph;
-    this.tele = { state: { cells, elapsed: 0, duration }, meshes };
+    this.tele = { pattern, state: { cells, elapsed: 0, duration }, meshes };
     // 작은 경고음: 큰 몬스터일수록 낮은 소리
     sfx.warn(1 / Math.max(0.8, this.stats.scale));
     this.face = faceAngle(Math.sign(target.c - this.c), Math.sign(target.r - this.r));

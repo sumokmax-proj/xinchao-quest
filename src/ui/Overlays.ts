@@ -39,7 +39,7 @@ function fillWords(id: string, words: Map<string, string>, empty: string): void 
 }
 
 export const isOverlayOpen = (): boolean =>
-  !el('startOv').hidden || !el('endOv').hidden || !el('bookOv').hidden || !el('stageOv').hidden || !el('shopOv').hidden || !el('setOv').hidden;
+  !el('startOv').hidden || !el('endOv').hidden || !el('bookOv').hidden || !el('stageOv').hidden || !el('shopOv').hidden || !el('setOv').hidden || !el('fxOv').hidden;
 
 export function showStart(): void {
   el('startOv').hidden = false;

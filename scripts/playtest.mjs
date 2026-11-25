@@ -251,6 +251,22 @@ async function villageRoutine(page, rng, shot, flags) {
 }
 
 
+/**
+ * 퀴즈 하나를 일부러 답하지 않고 시간 초과까지의 실제 시간을 잰다.
+ * 히트스톱·슬로 모션 같은 연출이 퀴즈 제한시간을 늘리거나 줄이지 않는지 확인하는 검사.
+ * 돌려주는 값: { limit, took } (초). 게임이 프레임당 최대 0.05초만 흘리므로 느린 PC에서는 조금 길어질 수 있다
+ */
+async function timeOneQuiz(page, s) {
+  const t0 = Date.now();
+  const already = s.quiz.limit - s.quiz.timeLeft;
+  while (Date.now() - t0 < 12000) {
+    const now = await snap(page);
+    if (!now.quiz || now.quiz.locked || now.result) break;
+    await page.waitForTimeout(50);
+  }
+  return { limit: s.quiz.limit, took: Math.round((already + (Date.now() - t0) / 1000) * 100) / 100 };
+}
+
 /** 스테이지 한 번 플레이. 결과 화면이 뜰 때까지 (또는 시간 초과) */
 async function playStage(page, rng, shot, flags) {
   const t0 = Date.now();
@@ -281,6 +297,23 @@ async function playStage(page, rng, shot, flags) {
     if (s.quiz?.kind === 'tone' && !flags.toneShot && s.quiz.acceptsInput) {
       await shot('tone-quiz');
       flags.toneShot = true;
+    }
+    // 첫 퀴즈는 스크린샷을 찍었으니, 두 번째 퀴즈부터 한 번만 시간 초과를 잰다
+    if (s.quiz && !s.quiz.locked && !s.quiz.phase && flags.quizSeen !== s.quiz.prompt) {
+      flags.quizSeen = s.quiz.prompt;
+      flags.quizCount++;
+      if (flags.quizCount === 2) {
+        flags.quizTiming = await timeOneQuiz(page, await snap(page));
+        continue;
+      }
+    }
+    // 마무리 일격·쇼크웨이브 장면
+    if (s.fx.shockwaves > 0 && !flags.waveShot) {
+      await shot('shockwave');
+      flags.waveShot = true;
+    } else if (s.fx.slowMo && !flags.slowShot) {
+      await shot('finisher');
+      flags.slowShot = true;
     }
     if (s.wave.index !== lastWave) {
       lastWave = s.wave.index;
@@ -376,7 +409,7 @@ async function playOnce(context, url, run) {
     return { run, rows: [{ result: 'webgl-error' }], errors, shots };
   }
   const rng = seeded(1234 + run);
-  const flags = { quizShot: false, toneShot: false, stageShots: new Set(), cutShots: new Set(), shopShots: new Set(), teleShots: new Set() };
+  const flags = { quizSeen: null, quizCount: 0, quizTiming: null, waveShot: false, slowShot: false, quizShot: false, toneShot: false, stageShots: new Set(), cutShots: new Set(), shopShots: new Set(), teleShots: new Set() };
   await page.click('#btnStart');
   await page.waitForTimeout(600);
   // 1스테이지를 깬 저장이면 마을에서 시작 → 성문으로 나가 열린 마지막 스테이지로
@@ -387,7 +420,18 @@ async function playOnce(context, url, run) {
     await page.click('#btnSettings');
     await page.waitForTimeout(300);
     await shot('settings');
-    await page.click('#btnSetClose');
+    // 개발용 연출 스위치: 평소에는 숨어 있고, 버전 글자를 5번 누르면 열린다
+    if (await page.isVisible('#btnFxMenu')) errors.push('연출 스위치 버튼이 처음부터 보임');
+    for (let i = 0; i < 5; i++) await page.click('#setVersion');
+    await page.click('#btnFxMenu');
+    await page.click('#btnFxNone');
+    await page.waitForTimeout(200);
+    if ((await snap(page)).fx.off.length === 0) errors.push('전부 끄기가 동작하지 않음');
+    await page.click('#fxList .fxsw[data-fx="shake"]');
+    await shot('fx-menu');
+    await page.click('#btnFxAll');
+    if ((await snap(page)).fx.off.length !== 0) errors.push('전부 켜기가 동작하지 않음');
+    await page.click('#btnFxClose');
   }
   // 프레임 측정 (2초)
   const fps = await page.evaluate(
@@ -437,7 +481,9 @@ async function playOnce(context, url, run) {
   }
   const final = await snap(page);
   await page.close();
-  return { run, rows, totalSeconds, profileBefore: before, profileAfter: final.profile, fps, gpu, errors, shots };
+  if (flags.quizTiming && Math.abs(flags.quizTiming.took - flags.quizTiming.limit) > 0.8)
+    errors.push(`퀴즈 시간 초과가 제한시간과 다름: 제한 ${flags.quizTiming.limit}초, 실제 ${flags.quizTiming.took}초`);
+  return { run, rows, quizTiming: flags.quizTiming, totalSeconds, profileBefore: before, profileAfter: final.profile, fps, gpu, errors, shots };
 }
 
 const label = { win: '클리어', lose: '쓰러짐', timeout: '시간 초과', 'webgl-error': 'WebGL 오류' };
@@ -472,6 +518,7 @@ const md = [
   '',
   '## 회차별',
   ...results.map((r) => `- 회차 ${r.run}: 플레이 ${r.rows.length}번, 총 ${r.totalSeconds ?? '-'}초, FPS ${r.fps ?? '-'}, 오류 ${r.errors.length}` +
+    (r.quizTiming ? `, 퀴즈 시간 초과 실측 ${r.quizTiming.took}초 (제한 ${r.quizTiming.limit}초)` : '') +
     (r.profileBefore && r.profileAfter ? ` · Lv ${r.profileBefore.level}→${r.profileAfter.level}, 골드 ${r.profileBefore.gold}→${r.profileAfter.gold}, 도감 ${r.profileBefore.collected}→${r.profileAfter.collected}, 클리어 ${r.profileAfter.clears}` : '')),
   '',
   'FPS는 이 PC 기준. 화면 주사율(보통 60)이 상한이다. headless는 소프트웨어 렌더링(SwiftShader)이라 실제 GPU보다 느리다. 실제 GPU로 재려면 --headed.',

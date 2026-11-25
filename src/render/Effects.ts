@@ -66,6 +66,59 @@ export class Particles {
   }
 }
 
+const waveGeo = new THREE.RingGeometry(0.82, 1, 40);
+
+interface Wave {
+  mesh: THREE.Mesh<THREE.RingGeometry, THREE.MeshBasicMaterial>;
+  t: number;
+  radius: number;
+  duration: number;
+}
+
+/** 바닥으로 퍼지는 원 띠. 빨간 예고와 헷갈리지 않게 밝은 금색·흰색만 쓴다 (셰이더 없이 메시 하나) */
+export class Shockwaves {
+  private list: Wave[] = [];
+  constructor(private scene: THREE.Scene) {}
+
+  get count(): number {
+    return this.list.length;
+  }
+
+  add(x: number, z: number, radius: number, duration: number, color: THREE.ColorRepresentation): void {
+    const mesh = new THREE.Mesh(waveGeo, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9, depthWrite: false }));
+    mesh.rotation.x = -Math.PI / 2;
+    mesh.position.set(x, 0.05, z);
+    mesh.scale.setScalar(0.2);
+    this.scene.add(mesh);
+    this.list.push({ mesh, t: 0, radius, duration });
+  }
+
+  update(dt: number): void {
+    this.list = this.list.filter((w) => {
+      w.t += dt;
+      const k = Math.min(1, w.t / w.duration);
+      const ease = 1 - (1 - k) * (1 - k);
+      w.mesh.scale.setScalar(Math.max(0.2, w.radius * ease));
+      w.mesh.material.opacity = 0.9 * (1 - k);
+      if (k >= 1) {
+        this.remove(w);
+        return false;
+      }
+      return true;
+    });
+  }
+
+  clear(): void {
+    this.list.forEach((w) => this.remove(w));
+    this.list = [];
+  }
+
+  private remove(w: Wave): void {
+    this.scene.remove(w.mesh);
+    w.mesh.material.dispose();
+  }
+}
+
 /** 바닥의 빨간 예고 칸 */
 export function makeTelegraphMesh(x: number, z: number): THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial> {
   const mesh = new THREE.Mesh(teleGeo, new THREE.MeshBasicMaterial({ color: '#ff3b2b', transparent: true, opacity: 0.2, depthWrite: false }));

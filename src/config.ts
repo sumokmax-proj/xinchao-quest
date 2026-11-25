@@ -190,6 +190,12 @@ export const CONFIG = {
     maxBonusDays: 6, // 보너스는 이 날수까지 (7일째부터는 같은 금액)
   },
 
+  review: {
+    intervals: [1, 3, 7], // 틀린 단어가 부활하는 간격(일)
+    dueChance: 0.5, // 부활한 단어가 있으면 이 확률로 그 단어를 먼저 낸다 (한 판에 같은 부활 단어는 한 번 맞히면 끝)
+    bonusGold: 1000, // 부활 단어를 맞히면 받는 골드
+  },
+
   wave: {
     nextDelay: 1.1, // 웨이브를 다 잡고 다음 웨이브까지
     clearDelay: 1.2, // 마지막 웨이브 후 클리어 화면까지

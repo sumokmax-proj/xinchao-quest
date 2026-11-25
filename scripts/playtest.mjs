@@ -11,6 +11,7 @@
  *   --dodge 0.7        빨간 예고를 보고 피하는 확률 (기본 0.7. 1이면 완벽한 고수, 0이면 전혀 안 피함)
  *   --timeout 360      한 판 최대 시간(초). 넘기면 "시간 초과"로 기록 (기본 360)
  *   --headed           브라우저 창을 띄워서 보기
+ *   --review 8         어제 틀려서 오늘 부활한 단어 N개가 있는 저장으로 시작 (간격 복습 확인용. --stage 2 이상과 함께)
  *   --keep-save        판마다 저장을 지우지 않고 이어서 플레이 (진행 저장 확인용. 기본은 매 판 새로 시작)
  *   --stage 3          3스테이지부터 (앞 스테이지는 깬 것으로, 레벨은 --level 또는 스테이지에 맞는 추정값)
  *   --level 6          시작 레벨 (--stage와 함께)
@@ -41,6 +42,8 @@ const START_LEVEL = opt('level', null);
 const CAMPAIGN = args.includes('--campaign');
 const MAX_PLAYS = Number(opt('max-plays', 20));
 const GALLERY = args.includes('--gallery');
+const REVIEW = Number(opt('review', 0));
+const WORDS = JSON.parse(readFileSync('src/data/words.json', 'utf8'));
 const STAGES = JSON.parse(readFileSync('src/data/stages.json', 'utf8'));
 /** --stage로 건너뛸 때 시작 레벨 추정 (캠페인 점검 결과로 맞춤) */
 const LEVEL_GUESS = [1, 3, 5, 7, 9, 11, 13];
@@ -338,6 +341,10 @@ async function playStage(page, rng, shot, flags) {
       await shot('first-quiz');
       flags.quizShot = true;
     }
+    if (s.quiz?.revive && s.quiz.acceptsInput && !flags.reviveShot) {
+      await shot('revive-quiz');
+      flags.reviveShot = true;
+    }
     if (s.quiz?.phase && !flags.phaseShot && s.quiz.acceptsInput) {
       await shot('boss-phase-quiz');
       flags.phaseShot = true;
@@ -417,14 +424,15 @@ async function playOnce(context, url, run) {
   if (!KEEP_SAVE || run === 1) {
     const level = Number(START_LEVEL ?? LEVEL_GUESS[START_STAGE - 1] ?? 1);
     const stages = Object.fromEntries(STAGES.slice(0, START_STAGE - 1).map((st) => [st.id, { clears: 1, best: 0 }]));
+    const review = Object.fromEntries(WORDS.slice(0, REVIEW).map((w) => [w.vi, { step: 0, due: '2000-01-01' }]));
     await page.evaluate(
-      ({ level, stages, skip }) => {
+      ({ level, stages, skip, review }) => {
         try {
           localStorage.clear();
-          if (skip) localStorage.setItem('xinchao-3d-v1', JSON.stringify({ answeredQuiz: true, stages, profile: { level, exp: 0, gold: 0, runs: 1 } }));
+          if (skip) localStorage.setItem('xinchao-3d-v1', JSON.stringify({ answeredQuiz: true, stages, review, profile: { level, exp: 0, gold: 0, runs: 1 } }));
         } catch {}
       },
-      { level, stages, skip: START_STAGE > 1 },
+      { level, stages, skip: START_STAGE > 1, review },
     );
     await page.reload();
     await page.waitForFunction(() => window.__game !== undefined, null, { timeout: 30000 });

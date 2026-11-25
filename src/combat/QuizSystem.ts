@@ -50,6 +50,7 @@ export function toneSiblings(words: readonly Word[], word: Word): Word[] {
 /**
  * 2지선다 문제 만들기. 40% 확률로 오답노트 단어를 먼저 낸다.
  * 고른 단어에 성조만 다른 짝이 있으면 toneChance 확률로 성조 구별 문제를 낸다.
+ * force: 이 단어를 낸다 (부활한 복습 단어). 오답 보기는 words에서 고른다.
  */
 export function makeQuestion(
   words: readonly Word[],
@@ -57,11 +58,12 @@ export function makeQuestion(
   rng: Rng,
   reviewChance: number = CONFIG.quiz.reviewChance,
   toneChance: number = CONFIG.quiz.toneChance,
+  force?: Word,
 ): Question {
   if (words.length < 2) throw new Error('퀴즈에는 단어가 2개 이상 필요');
   const wrongKeys = Object.keys(note);
-  let word: Word | undefined;
-  if (wrongKeys.length && rng() < reviewChance) {
+  let word: Word | undefined = force;
+  if (!word && wrongKeys.length && rng() < reviewChance) {
     const key = pick(rng, wrongKeys);
     word = words.find((w) => w.vi === key);
   }
@@ -73,8 +75,9 @@ export function makeQuestion(
     return { word, kind: 'tone', viToKo: false, prompt: word.ko, kindLabel: '성조 주의 · 베트남어로?', options: [a, b], answer: word.vi };
   }
   let other: Word;
+  // 같은 단어나 뜻·글자가 같은 단어는 오답 보기로 쓰지 않는다
   do other = pick(rng, words);
-  while (other === word);
+  while (other.vi === word.vi || other.ko === word.ko);
   const viToKo = rng() < 0.5;
   const [a, b] = shuffle(rng, viToKo ? [word.ko, other.ko] : [word.vi, other.vi]);
   return {

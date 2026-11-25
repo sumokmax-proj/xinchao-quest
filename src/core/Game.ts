@@ -12,6 +12,7 @@ import { sfx, setPitchVary, setSoundEnabled, unlockAudio } from '../audio/Sfx';
 import { vibrate } from '../audio/Haptics';
 import { fxOn, setAllFx, toggleFx, type FxId } from './Fx';
 import { TimeFx } from './TimeFx';
+import { dueWords, isDue, recordReview } from './Review';
 import { dailyReward, dailyView, dayKey, recordCorrect } from './Daily';
 import { drawDaily } from '../ui/DailyView';
 import { initVoice, setVoiceEnabled, speak } from '../audio/Voice';
@@ -42,7 +43,7 @@ import { CameraRig } from '../world/CameraRig';
 import { DIRS, Grid, findSpawnCell, isCellFree, type Cell, type Dir, type MapData } from '../world/Grid';
 import { getMap } from '../world/maps';
 import type * as THREE from 'three';
-import { defaultRng } from './random';
+import { defaultRng, pick } from './random';
 import { dexProgress, heroStatsFor, recordAnswer } from './Progress';
 import { clearProgress, loadSave, persist, type SaveData } from './Save';
 import { Timers } from './Timers';
@@ -68,7 +69,7 @@ export interface DebugSnapshot {
   map: string[];
   player: { c: number; r: number; hp: number; maxHp: number; level: number; gold: number; ready: boolean };
   goblins: { kind: string; c: number; r: number; hp: number; maxHp: number; state: string; boss: boolean; telegraph: Cell[] }[];
-  quiz: { answerSide: 0 | 1; acceptsInput: boolean; locked: boolean; timeLeft: number; limit: number; prompt: string; kind: string; phase: boolean } | null;
+  quiz: { revive: boolean; answerSide: 0 | 1; acceptsInput: boolean; locked: boolean; timeLeft: number; limit: number; prompt: string; kind: string; phase: boolean } | null;
   fx: { off: string[]; slowMo: boolean; shockwaves: number };
   daily: { count: number; goal: number; done: boolean; streak: number };
   wave: { index: number; total: number };
@@ -592,7 +593,8 @@ export class Game {
   private updateStartNote(): void {
     this.drawDailyBars();
     const wc = Object.keys(this.save.wrong).length;
-    setStartNote(wc ? `지난번에 틀린 단어 ${wc}개가 더 자주 나와요.` : '');
+    const due = dueWords(this.save.review, dayKey(new Date())).length;
+    setStartNote(due ? `오늘 부활한 단어 ${due}개 · 다시 맞히면 보너스` : wc ? `지난번에 틀린 단어 ${wc}개가 더 자주 나와요.` : '');
     const { collected, total } = dexProgress(this.save.dex, WORDS);
     setStartProfile(this.save.profile, collected, total, wc, fmtDong(this.save.profile.gold));
   }
@@ -625,6 +627,20 @@ export class Game {
     this.timers.after(0.9, () => {
       toast(`<b>오늘의 목표 달성!</b> +${fmtDong(gold)}${r.state.streak > 1 ? ` · ${r.state.streak}일 연속` : ''}`, 'level');
       sfx.coin();
+      this.updateHud();
+    });
+  }
+
+  /** 틀리면 부활 일정에 넣고, 부활한 단어를 맞히면 보너스 골드 */
+  private countReview(vi: string, ok: boolean): void {
+    const r = recordReview(this.save.review, vi, ok, dayKey(new Date()), CONFIG.review.intervals);
+    this.save.review = r.state;
+    if (!r.revived) return;
+    const gold = CONFIG.review.bonusGold;
+    this.save.profile = { ...this.save.profile, gold: this.save.profile.gold + gold };
+    this.player.stats.gold += gold;
+    this.timers.after(0.5, () => {
+      toast(r.graduated ? `<b>${esc(vi)}</b> 완전히 익혔어요! +${fmtDong(gold)}` : `복습 성공 +${fmtDong(gold)}`, 'level');
       this.updateHud();
     });
   }
@@ -893,7 +909,6 @@ export class Game {
       locked: false,
       question: this.newQuestion(g, phase),
     };
-    this.bubble.setPhase(phase);
     this.showQuestion();
     this.bubble.setTeach(!this.save.answeredQuiz);
     this.bubble.show();
@@ -904,11 +919,17 @@ export class Game {
   private newQuestion(g: Goblin, phase: boolean): Question {
     const pool = pickPool(this.pools, this.rng, CONFIG.quiz.olderChance);
     const hard = !phase && g.stats.phases.length > 0 && g.need === 1;
-    return makeQuestion(hard ? WORDS : pool, this.save.wrong, this.rng, CONFIG.quiz.reviewChance, hard ? 1 : CONFIG.quiz.toneChance);
+    if (hard) return makeQuestion(WORDS, this.save.wrong, this.rng, CONFIG.quiz.reviewChance, 1);
+    // 부활한 복습 단어가 있으면 먼저. 맞히면 다음 부활 날짜로 넘어가서 목록에서 빠진다
+    const due = dueWords(this.save.review, dayKey(new Date()));
+    const force = due.length && this.rng() < CONFIG.review.dueChance ? WORDS.find((w) => w.vi === pick(this.rng, due)) : undefined;
+    return makeQuestion(pool, this.save.wrong, this.rng, CONFIG.quiz.reviewChance, CONFIG.quiz.toneChance, force);
   }
 
   private showQuestion(): void {
     if (!this.quiz) return;
+    const revive = isDue(this.save.review, this.quiz.question.word.vi, dayKey(new Date()));
+    this.bubble.setHead(this.quiz.phase ? 'phase' : revive ? 'revive' : null);
     this.bubble.setQuestion(this.quiz.question, this.quiz.phase ? 1 : this.quiz.goblin.need, this.quiz.goblin.boss);
   }
 
@@ -942,6 +963,7 @@ export class Game {
     const pr = this.save.profile;
     this.save.profile = { ...pr, answered: pr.answered + 1, correct: pr.correct + (ok ? 1 : 0) };
     if (ok) this.countCorrect();
+    this.countReview(q.word.vi, ok);
     if (side !== null) {
       // 시간 초과가 아니라 직접 답했으면, 답하는 법을 안 것으로 보고 다음부터 깜빡이지 않음
       this.save.answeredQuiz = true;
@@ -1192,6 +1214,7 @@ export class Game {
         .map((g) => ({ kind: g.kind, c: g.c, r: g.r, hp: g.hp, maxHp: g.maxHp, state: g.state, boss: g.boss, telegraph: g.telegraphCells })),
       quiz: q
         ? {
+            revive: isDue(this.save.review, q.question.word.vi, dayKey(new Date())),
             answerSide: q.question.options.indexOf(q.question.answer) as 0 | 1,
             acceptsInput: !q.locked && performance.now() >= q.armedAt,
             locked: q.locked,

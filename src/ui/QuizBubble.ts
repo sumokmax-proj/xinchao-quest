@@ -30,9 +30,14 @@ export class QuizBubble {
     this.dpad.classList.remove('quizmode');
   }
 
-  /** 지역 보스의 HP 단계 퀴즈: 말풍선 안에 한 줄로 알려준다 (따로 띄우면 문제를 가림) */
-  setPhase(on: boolean): void {
-    this.phaseHead.hidden = !on;
+  /**
+   * 말풍선 머리띠 한 줄 (따로 띄우면 문제를 가림).
+   * phase: 지역 보스의 HP 단계 퀴즈, revive: 부활한 복습 단어
+   */
+  setHead(kind: 'phase' | 'revive' | null): void {
+    this.phaseHead.hidden = !kind;
+    this.phaseHead.classList.toggle('revive', kind === 'revive');
+    if (kind) this.phaseHead.textContent = kind === 'phase' ? '왕이 비틀거린다! 맞히면 큰 피해' : '부활한 단어! 맞히면 보너스';
   }
 
   /** 처음 퀴즈를 만난 사람에게 ←/→ 답 버튼을 깜빡여 보여준다 */

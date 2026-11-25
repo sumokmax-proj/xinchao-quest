@@ -85,6 +85,7 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
 .quiz.tone .qk{color:#b5462f}
 .quiz.tone .qa button{font-size:19px}
 .qphase{margin:-10px -10px 8px;padding:6px 8px;border-radius:16px 16px 0 0;background:#3a1f14;color:var(--gold);text-align:center;font-family:var(--font-display);font-size:15px}
+.qphase.revive{background:#1f2f4a;color:#9fd0ff}
 .qk{margin:0;text-align:center;font-size:12px;font-weight:700;color:#3d6b60}
 .qq{margin:2px 0 8px;text-align:center;font-size:26px;font-weight:800;line-height:1.2}
 .qa{display:grid;grid-template-columns:1fr 1fr;gap:6px}

@@ -9,6 +9,12 @@ export default defineConfig({
   },
   build: {
     chunkSizeWarningLimit: 800, // three가 커서 기본 경고(500kB)를 넘음. 압축하면 약 150kB
+    rolldownOptions: {
+      output: {
+        // three(3D 라이브러리)는 따로 묶는다: 게임을 업데이트해도 폰이 three를 다시 받지 않게
+        codeSplitting: { groups: [{ name: 'three', test: /node_modules[\\/]three[\\/]/ }] },
+      },
+    },
   },
   test: {
     include: ['tests/**/*.test.ts'],

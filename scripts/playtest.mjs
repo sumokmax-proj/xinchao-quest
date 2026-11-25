@@ -430,6 +430,11 @@ async function playOnce(context, url, run) {
     await page.evaluate(() => window.dispatchEvent(new Event('resize')));
     await page.waitForTimeout(500);
     await shot('gallery-smooth');
+    await page.evaluate(() => window.__game.debugZoom(1.5));
+    await page.waitForTimeout(900);
+    await shot('gallery-zoom');
+    await page.evaluate(() => window.__game.debugZoom(1));
+    await page.waitForTimeout(600);
     await page.setViewportSize({ width: 844, height: 390 });
     await page.waitForTimeout(500);
     await shot('landscape');

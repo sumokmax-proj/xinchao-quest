@@ -239,6 +239,8 @@ export class Game {
     this.result = null;
     this.hurtCount = 0;
     this.waves = new WaveProgress(this.stage.waves.length);
+    // 첫 전투 힌트는 한 번도 해 보지 않은 사람에게만
+    el('hint').hidden = pr.runs > 0;
     this.held = [];
     this.queued = null;
     this.spawnWave(0, true);
@@ -339,6 +341,7 @@ export class Game {
     this.held = [];
     this.queued = null;
     Hud.setPlace('씬짜오 마을');
+    el('hint').hidden = true;
     this.updateHud();
   }
 
@@ -1114,15 +1117,17 @@ export class Game {
     this.goblins.forEach((g) => g.dispose());
     this.goblins = [];
     const kinds = Object.keys(CONFIG.enemies) as EnemyKind[];
-    const spots = [
-      { c: 2, r: 12 }, { c: 5, r: 12 }, { c: 8, r: 12 },
-      { c: 2, r: 10 }, { c: 5, r: 10 }, { c: 8, r: 10 },
-      { c: 5, r: 8 }, { c: 2, r: 8 }, { c: 8, r: 8 },
-    ];
+    const { c, r } = this.player.cell;
+    const spots = [-2, -4, -6].flatMap((dr) => [-2, 0, 2].map((dc) => ({ c: c + dc, r: r + dr })));
     kinds.forEach((k, i) => {
       const s = spots[i % spots.length];
       this.goblins.push(new Goblin(k, s.c, s.r, this.grid, this.scene, this.rng));
     });
+  }
+
+  /** 개발용: 카메라를 확대해 둔다 (몬스터 모양 확인용) */
+  debugZoom(zoom: number): void {
+    this.cam.punch(zoom, 999);
   }
 
   /**

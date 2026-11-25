@@ -19,6 +19,14 @@ export interface StageData {
 export interface StageRecord {
   clears: number;
   best: number; // 가장 빠른 클리어 시간(초). 0이면 기록 없음
+  stars: number; // 가장 좋았던 별 (0~3). 별은 퀴즈 정답률로 받는다
+}
+
+/** 이번 판의 별: 졌으면 0, 클리어 1, 정답률 two 이상 2, three 이상 3 */
+export function starsFor(win: boolean, correct: number, total: number, rule: { two: number; three: number }): number {
+  if (!win) return 0;
+  const acc = total > 0 ? correct / total : 0;
+  return acc >= rule.three ? 3 : acc >= rule.two ? 2 : 1;
 }
 export type StageRecords = Record<string, StageRecord>;
 
@@ -37,10 +45,10 @@ export function lastUnlocked(stages: readonly StageData[], records: StageRecords
 }
 
 /** 클리어 기록 갱신 (원본은 그대로) */
-export function recordClear(records: StageRecords, id: string, seconds: number): StageRecords {
-  const prev = records[id] ?? { clears: 0, best: 0 };
+export function recordClear(records: StageRecords, id: string, seconds: number, stars = 1): StageRecords {
+  const prev = records[id] ?? { clears: 0, best: 0, stars: 0 };
   const best = prev.best === 0 ? seconds : Math.min(prev.best, seconds);
-  return { ...records, [id]: { clears: prev.clears + 1, best } };
+  return { ...records, [id]: { clears: prev.clears + 1, best, stars: Math.max(prev.stars, stars) } };
 }
 
 interface TopicWord {
@@ -89,7 +97,8 @@ export function sanitizeStageRecords(raw: unknown): StageRecords {
     if (!v || typeof v !== 'object') continue;
     const r = v as Record<string, unknown>;
     const n = (x: unknown) => (typeof x === 'number' && Number.isFinite(x) && x >= 0 ? Math.floor(x) : 0);
-    out[id] = { clears: n(r.clears), best: n(r.best) };
+    // 별이 생기기 전에 깬 저장은 별 하나로
+    out[id] = { clears: n(r.clears), best: n(r.best), stars: Math.min(3, Math.max(n(r.stars), n(r.clears) > 0 ? 1 : 0)) };
   }
   return out;
 }

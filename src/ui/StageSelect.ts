@@ -1,9 +1,10 @@
 import { dexProgress, type Dex } from '../core/Progress';
 import { isUnlocked, stageWords, type StageData, type StageRecords } from '../core/Stages';
 import { el } from './dom';
+import { starRow } from './stars';
 
 /**
- * 스테이지 목록. 깬 스테이지는 ★, 아직 못 여는 스테이지는 잠김.
+ * 스테이지 목록. 깬 스테이지는 별 3칸(퀴즈 정답률), 아직 못 여는 스테이지는 잠김.
  * 카드마다 그 스테이지 주제의 도감 진행(모은 단어 / 전체)을 보여준다.
  */
 export class StageSelect {
@@ -34,10 +35,9 @@ export class StageSelect {
       const prog = dexProgress(dex, main);
       topics.textContent = (st.topics.length ? st.topics.join(' · ') : '모든 단어') + ` · 단어 ${prog.collected}/${prog.total}`;
       body.append(name, topics);
-      const star = document.createElement('span');
-      star.className = 'star';
-      star.textContent = rec?.clears ? '★' : '';
-      b.append(num, body, star);
+      b.append(num, body);
+      // 깬 스테이지만 별 3칸 (빈 칸이 "다시 하면 더 받을 수 있다"는 표시)
+      if (rec?.clears) b.append(starRow(rec.stars));
       if (unlocked) {
         b.addEventListener('click', () => this.onPick(i));
         focus = b;

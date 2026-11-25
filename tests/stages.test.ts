@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import stagesJson from '../src/data/stages.json';
 import words from '../src/data/words.json';
 import { CONFIG } from '../src/config';
-import { isUnlocked, lastUnlocked, pickPool, recordClear, sanitizeStageRecords, scaleEnemy, stageWords, type StageData } from '../src/core/Stages';
+import { isUnlocked, lastUnlocked, pickPool, recordClear, sanitizeStageRecords, starsFor, scaleEnemy, stageWords, type StageData } from '../src/core/Stages';
 import { MAPS } from '../src/world/maps';
 import { Grid } from '../src/world/Grid';
 import { seq } from './helpers';
@@ -99,10 +99,10 @@ describe('스테이지 해금', () => {
     let rec = recordClear({}, 'a', 120);
     rec = recordClear(rec, 'a', 90);
     rec = recordClear(rec, 'a', 150);
-    expect(rec.a).toEqual({ clears: 3, best: 90 });
+    expect(rec.a).toEqual({ clears: 3, best: 90, stars: 1 });
   });
   it('깨진 저장 값은 고침', () => {
-    expect(sanitizeStageRecords({ a: { clears: -1, best: 'x' }, b: 5 })).toEqual({ a: { clears: 0, best: 0 } });
+    expect(sanitizeStageRecords({ a: { clears: -1, best: 'x' }, b: 5 })).toEqual({ a: { clears: 0, best: 0, stars: 0 } });
   });
 });
 
@@ -145,5 +145,32 @@ describe('적 배율', () => {
     expect(s.exp).toBe(13); // 12 × √1.25
     expect(s.gold).toBe(4000);
     expect(s.telegraph).toBe(CONFIG.enemies.goblin.telegraph);
+  });
+});
+
+describe('스테이지 별 (퀴즈 정답률)', () => {
+  const rule = CONFIG.stars;
+  it('졌으면 0, 클리어하면 최소 1', () => {
+    expect(starsFor(false, 10, 10, rule)).toBe(0);
+    expect(starsFor(true, 0, 10, rule)).toBe(1);
+    expect(starsFor(true, 0, 0, rule)).toBe(1);
+  });
+  it('정답률 80% 이상 2개, 95% 이상 3개', () => {
+    expect(starsFor(true, 15, 20, rule)).toBe(1);
+    expect(starsFor(true, 16, 20, rule)).toBe(2);
+    expect(starsFor(true, 18, 20, rule)).toBe(2);
+    expect(starsFor(true, 19, 20, rule)).toBe(3);
+  });
+  it('가장 좋았던 별이 남는다', () => {
+    let rec = recordClear({}, 'a', 100, 3);
+    rec = recordClear(rec, 'a', 90, 1);
+    expect(rec.a.stars).toBe(3);
+  });
+  it('별이 생기기 전의 저장은 깬 스테이지에 별 1개', () => {
+    expect(sanitizeStageRecords({ a: { clears: 2, best: 50 }, b: { clears: 0, best: 0 }, c: { clears: 1, stars: 9 } })).toMatchObject({
+      a: { stars: 1 },
+      b: { stars: 0 },
+      c: { stars: 3 },
+    });
   });
 });

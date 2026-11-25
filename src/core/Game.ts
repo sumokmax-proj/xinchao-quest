@@ -51,7 +51,7 @@ import { Timers } from './Timers';
 import { WaveProgress } from './Waves';
 import { activeNpcs, builtSet, nextBuilding, pickVillageQuestion, questionOptions, touchAt, type Npc, type VillageData } from './Village';
 import { buy, gearEffects, guardedDamage, pickFood, useItem, type GearEffects, type ShopItem } from './Shop';
-import { isUnlocked, lastUnlocked, pickPool, recordClear, scaleEnemy, stageWords, type StageData } from './Stages';
+import { isUnlocked, lastUnlocked, pickPool, recordClear, starsFor, scaleEnemy, stageWords, type StageData } from './Stages';
 
 const STAGES = stagesJson as StageData[];
 const WORDS = wordsJson as Word[];
@@ -533,11 +533,15 @@ export class Game {
       clears: this.save.profile.clears + (win ? 1 : 0),
       ended: this.save.profile.ended + (this.ending ? 1 : 0),
     };
-    if (win) this.save.stages = recordClear(this.save.stages, this.stage.id, seconds);
+    const stars = starsFor(win, this.run.correct, this.run.quiz, CONFIG.stars);
+    if (win) this.save.stages = recordClear(this.save.stages, this.stage.id, seconds, stars);
     persist(this.save);
     const summary: EndSummary = {
       win,
       stageName: this.stage.name,
+      stars,
+      starHint:
+        stars === 1 ? `퀴즈 정답률 ${CONFIG.stars.two * 100}%면 ★★` : stars === 2 ? `퀴즈 정답률 ${CONFIG.stars.three * 100}%면 ★★★` : '',
       hasNext: win && this.stageIndex + 1 < STAGES.length,
       isLast,
       ending: this.ending

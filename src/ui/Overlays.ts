@@ -1,8 +1,11 @@
 import { el } from './dom';
+import { starRow } from './stars';
 
 export interface EndSummary {
   win: boolean;
   stageName: string;
+  stars: number; // 이번 판의 별 (0 = 짐)
+  starHint: string; // 다음 별을 받는 조건 한 줄 (다 받았으면 '')
   hasNext: boolean; // 이겼고 다음 스테이지가 있음 → 큰 버튼이 "다음 스테이지"
   isLast: boolean;
   /** 마지막 스테이지를 깼을 때: 지금까지의 전체 기록 */
@@ -85,6 +88,11 @@ export function showEnd(s: EndSummary): void {
     el('endTitle').textContent = '고블린 왕을 물리쳤어요!';
     el('endSub').textContent = '마을 앞부터 요새까지, 베트남어로 길을 열었어요';
   }
+  const box = el('endStars');
+  box.hidden = !s.stars;
+  const hint = document.createElement('small');
+  hint.textContent = s.starHint;
+  box.replaceChildren(starRow(s.stars), hint);
   const acc = s.total ? Math.round((s.correct / s.total) * 100) : 0;
   const time = (sec: number) => Math.floor(sec / 60) + '분 ' + (sec % 60) + '초';
   const rows: [string, string][] = s.ending

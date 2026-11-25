@@ -196,6 +196,8 @@ export const CONFIG = {
     bonusGold: 1000, // 부활 단어를 맞히면 받는 골드
   },
 
+  stars: { two: 0.8, three: 0.95 }, // 스테이지 별: 클리어 ★, 퀴즈 정답률이 이 이상이면 ★★ · ★★★
+
   wave: {
     nextDelay: 1.1, // 웨이브를 다 잡고 다음 웨이브까지
     clearDelay: 1.2, // 마지막 웨이브 후 클리어 화면까지

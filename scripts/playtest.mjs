@@ -198,6 +198,7 @@ async function villageRoutine(page, rng, shot, flags) {
       if (!flags.shopShots.has(plan[step])) {
         flags.shopShots.add(plan[step]);
         await shot('shop-' + plan[step]);
+        if (plan[step] === 'food') await shot.small('shop');
       }
       if (plan[step] === 'food') await shopBuy(page, Object.keys(FOOD_WANT), FOOD_WANT);
       else await shopBuy(page, GEAR_ORDER);
@@ -208,6 +209,7 @@ async function villageRoutine(page, rng, shot, flags) {
     if (s.overlay === 'stageOv') {
       if (!flags.selectShot) {
         await shot('stage-select');
+        await shot.small('stage-select');
         flags.selectShot = true;
       }
       const cards = page.locator('#stageList .stage:not(.locked)');
@@ -390,7 +392,12 @@ async function playStage(page, rng, shot, flags) {
   }
   await page.waitForTimeout(600);
   const final = await snap(page);
-  if (!flags.stageShots.has(stage.index) || final.result !== 'win') await shot(`s${stage.index + 1}-end-${final.result ?? 'timeout'}`);
+  if (!flags.stageShots.has(stage.index) || final.result !== 'win') {
+    await shot(`s${stage.index + 1}-end-${final.result ?? 'timeout'}`);
+    // 결과 화면은 첫 번째와 엔딩
+    if (!flags.endSmall || final.ending) await shot.small('end');
+    flags.endSmall = true;
+  }
   flags.stageShots.add(stage.index);
   return {
     stage: stage.index + 1,
@@ -418,6 +425,24 @@ async function playOnce(context, url, run) {
     await page.screenshot({ path: join(OUT, file) });
     shots.push(file);
   };
+  /** 주소창 때문에 낮아진 작은 폰 화면(375×640)에서도 찍는다. 화면 밖으로 나간 위쪽 내용이 있으면 오류 */
+  const smallShot = async (name) => {
+    await page.setViewportSize({ width: 375, height: 640 });
+    await page.waitForTimeout(500);
+    await shot(name + '-small');
+    const clipped = await page.evaluate(() => {
+      const ov = [...document.querySelectorAll('.overlay')].find((o) => !o.hidden);
+      if (!ov) return null;
+      ov.scrollTop = 0;
+      const first = [...ov.children].find((c) => !c.hidden && c.getBoundingClientRect().height > 0);
+      return first && first.getBoundingClientRect().top < 0 ? ov.id : null;
+    });
+    if (clipped) errors.push(`작은 화면에서 ${clipped} 위쪽이 잘림 (밀어도 볼 수 없음)`);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.waitForTimeout(300);
+  };
+  // 첫 판에서만 작은 화면 확인 (장면마다 한 번)
+  shot.small = run === 1 ? smallShot : async () => {};
 
   await page.goto(url);
   await page.waitForFunction(() => window.__game !== undefined, null, { timeout: 30000 });
@@ -466,6 +491,7 @@ async function playOnce(context, url, run) {
   const before = (await snap(page)).profile;
   const webgl = !(await page.isVisible('#err'));
   await shot('start');
+  await shot.small('start');
   if (!webgl) {
     await page.close();
     return { run, rows: [{ result: 'webgl-error' }], errors, shots };
@@ -482,6 +508,7 @@ async function playOnce(context, url, run) {
     await page.click('#btnSettings');
     await page.waitForTimeout(300);
     await shot('settings');
+    await shot.small('settings');
     // 개발용 연출 스위치: 평소에는 숨어 있고, 버전 글자를 5번 누르면 열린다
     if (await page.isVisible('#btnFxMenu')) errors.push('연출 스위치 버튼이 처음부터 보임');
     for (let i = 0; i < 5; i++) await page.click('#setVersion');
@@ -491,6 +518,7 @@ async function playOnce(context, url, run) {
     if ((await snap(page)).fx.off.length === 0) errors.push('전부 끄기가 동작하지 않음');
     await page.click('#fxList .fxsw[data-fx="shake"]');
     await shot('fx-menu');
+    await shot.small('fx-menu');
     await page.click('#btnFxAll');
     if ((await snap(page)).fx.off.length !== 0) errors.push('전부 켜기가 동작하지 않음');
     await page.click('#btnFxClose');
@@ -532,6 +560,7 @@ async function playOnce(context, url, run) {
     await page.waitForTimeout(300);
     await page.click('#tabDex');
     await shot('book-dex');
+    await shot.small('book');
     await page.click('#tabWrong');
     await shot('book-wrong');
     await page.click('#btnBookClose');

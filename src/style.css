@@ -165,6 +165,16 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
 /* 엔딩 */
 #endOv.ending h2{font-size:30px}
 #endOv.ending .wordcols{display:none}
+/* 결과 화면: 내용이 많아서 화면 높이에 맞게 줄이고, 그래도 넘치면 밀어서 본다 (위가 잘리지 않게 safe center) */
+#endOv{justify-content:safe center;overflow-y:auto;gap:10px;padding-top:calc(16px + env(safe-area-inset-top));padding-bottom:calc(14px + env(safe-area-inset-bottom));background:rgba(10,20,17,.9)}
+#endOv>*{flex:none}
+#endOv .wordcols .wrongs{max-height:clamp(78px,calc((100vh - 624px) / 2),180px)}
+@media (max-height:740px){
+  #endOv{gap:7px}
+  #endOv h2{font-size:27px}
+  #endOv .endstars .starrow i{font-size:28px}
+  #endOv .stats div{padding:4px 10px}
+}
 .btnrow{display:grid;grid-template-columns:1fr 1fr 2fr;gap:8px}
 .btnrow.two{grid-template-columns:1fr 2fr}
 .btnrow .btn{padding:0 6px}
@@ -174,7 +184,16 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
 .stage .body{flex:1;display:grid;gap:2px}
 .stage .body b{font-size:16px}
 .stage .body small{color:var(--muted);font-size:12px}
-.stage .star{color:var(--gold);font-size:22px;width:24px;text-align:center}
+.starrow{display:inline-flex;gap:1px;flex:none}
+.starrow i{font-style:normal;font-size:17px;color:rgba(255,255,255,.18)}
+.starrow i.on{color:var(--gold)}
+.endstars{display:grid;justify-items:center;gap:2px;margin-top:-6px}
+.endstars .starrow i{font-size:38px;line-height:1.1}
+.endstars .starrow i.on{animation:starpop .45s ease-out backwards}
+.endstars .starrow i.on:nth-child(2){animation-delay:.2s}
+.endstars .starrow i.on:nth-child(3){animation-delay:.4s}
+.endstars small{font-size:12px;color:var(--muted)}
+@keyframes starpop{0%{transform:scale(0) rotate(-40deg)}70%{transform:scale(1.35)}100%{transform:scale(1)}}
 .stage.cleared .num{background:var(--gold);color:#2a1a00}
 .stage.locked{opacity:.4;cursor:default}
 .stage.locked .num{background:rgba(255,255,255,.12)}

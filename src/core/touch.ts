@@ -22,3 +22,61 @@ export function padDirection(dx: number, dy: number, dead: number, current: Dir 
 
 /** 스와이프: 시작점에서 min(px) 넘게 움직였으면 그 방향 */
 export const swipeDirection = (dx: number, dy: number, min: number): Dir | null => (Math.max(Math.abs(dx), Math.abs(dy)) < min ? null : toDir(dx, dy));
+
+export interface GestureAction {
+  type: 'press' | 'release';
+  dir: Dir;
+}
+
+/**
+ * 스와이프 한 번의 터치 (손가락을 댈 때부터 뗄 때까지).
+ * 일정 거리를 넘는 순간 출발하고, 대고 있으면 계속 걷고, 다시 밀면 방향이 바뀐다.
+ * answering: 지금 방향 입력이 "답"인가(퀴즈·마을 질문).
+ * 답은 퀴즈가 뜬 "뒤에 새로 댄" 손가락만, 한 번 밀 때 하나. 걷던 손가락이 흘러가 답이 눌리는 일이 없게.
+ */
+export class SwipeGesture {
+  private x = 0;
+  private y = 0;
+  private dir: Dir | null = null;
+  private active = false;
+  private startedAnswering = false;
+
+  constructor(private readonly min: number) {}
+
+  down(x: number, y: number, answering: boolean): GestureAction[] {
+    const out = this.up();
+    this.x = x;
+    this.y = y;
+    this.active = true;
+    this.startedAnswering = answering;
+    return out;
+  }
+
+  move(x: number, y: number, answering: boolean): GestureAction[] {
+    if (!this.active || (answering && !this.startedAnswering)) return [];
+    const next = swipeDirection(x - this.x, y - this.y, this.min);
+    if (!next) return [];
+    // 기준점을 손가락 위치로 옮겨서, 거기서 다시 밀면 방향을 바꿀 수 있게
+    this.x = x;
+    this.y = y;
+    if (answering) {
+      this.active = false; // 한 번 터치로 답 하나
+      return [
+        { type: 'press', dir: next },
+        { type: 'release', dir: next },
+      ];
+    }
+    if (next === this.dir) return [];
+    const out: GestureAction[] = this.dir ? [{ type: 'release', dir: this.dir }] : [];
+    this.dir = next;
+    out.push({ type: 'press', dir: next });
+    return out;
+  }
+
+  up(): GestureAction[] {
+    const out: GestureAction[] = this.dir ? [{ type: 'release', dir: this.dir }] : [];
+    this.dir = null;
+    this.active = false;
+    return out;
+  }
+}

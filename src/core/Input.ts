@@ -1,7 +1,7 @@
 import type { Dir } from '../world/Grid';
 import { CONFIG } from '../config';
 import { unlockAudio } from '../audio/Sfx';
-import { padDirection, swipeDirection } from './touch';
+import { padDirection, SwipeGesture, type GestureAction } from './touch';
 
 const KEYMAP: Record<string, Dir> = {
   ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right',
@@ -98,21 +98,20 @@ function bindPad(dpad: HTMLElement, h: InputHandlers): void {
   });
 }
 
-/**
- * 스와이프: 일정 거리를 넘는 순간 그 방향으로 출발하고, 손가락을 대고 있으면 계속 걷는다 (D-pad 꾹 누르기와 같음).
- * 손가락을 다시 다른 쪽으로 밀면 방향이 바뀐다. 답 고르기 중에는 한 번의 터치로 한 번만.
- */
+/** 스와이프: 동작 규칙은 core/touch.ts의 SwipeGesture. 여기서는 포인터 이벤트만 이어 준다 */
 function bindSwipe(canvas: HTMLCanvasElement, h: InputHandlers): void {
-  let touch: { id: number; x: number; y: number; dir: Dir | null; done: boolean } | null = null;
+  const gesture = new SwipeGesture(CONFIG.touch.swipeMin);
+  let pointer: number | null = null;
+  const apply = (actions: GestureAction[]) => actions.forEach((x) => h[x.type](x.dir));
   const end = (e: PointerEvent) => {
-    if (!touch || e.pointerId !== touch.id) return;
-    if (touch.dir) h.release(touch.dir);
-    touch = null;
+    if (e.pointerId !== pointer) return;
+    pointer = null;
+    apply(gesture.up());
   };
   canvas.addEventListener('pointerdown', (e) => {
-    if (touch?.dir) h.release(touch.dir);
     unlockAudio();
-    touch = { id: e.pointerId, x: e.clientX, y: e.clientY, dir: null, done: false };
+    pointer = e.pointerId;
+    apply(gesture.down(e.clientX, e.clientY, h.answering()));
     try {
       canvas.setPointerCapture(e.pointerId);
     } catch {
@@ -120,24 +119,13 @@ function bindSwipe(canvas: HTMLCanvasElement, h: InputHandlers): void {
     }
   });
   canvas.addEventListener('pointermove', (e) => {
-    if (!touch || e.pointerId !== touch.id || touch.done) return;
-    const dir = swipeDirection(e.clientX - touch.x, e.clientY - touch.y, CONFIG.touch.swipeMin);
-    if (!dir) return;
-    // 기준점을 손가락 위치로 옮겨서, 거기서 다시 밀면 방향을 바꿀 수 있게
-    touch.x = e.clientX;
-    touch.y = e.clientY;
-    if (dir === touch.dir) return;
-    if (touch.dir) h.release(touch.dir);
-    const wasAnswering = h.answering();
-    touch.dir = dir;
-    h.press(dir);
-    if (wasAnswering) {
-      h.release(dir);
-      touch.dir = null;
-      touch.done = true;
-    }
+    if (e.pointerId === pointer) apply(gesture.move(e.clientX, e.clientY, h.answering()));
   });
   canvas.addEventListener('pointerup', end);
   canvas.addEventListener('pointercancel', end);
   canvas.addEventListener('lostpointercapture', end);
+  window.addEventListener('blur', () => {
+    pointer = null;
+    apply(gesture.up());
+  });
 }

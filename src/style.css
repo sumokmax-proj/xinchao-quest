@@ -100,8 +100,8 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
 .qt i.low{background:var(--red)}
 
 /* d-pad */
-.dpad{position:absolute;z-index:5;left:50%;bottom:calc(14px + env(safe-area-inset-bottom));transform:translateX(-50%);display:grid;grid-template-columns:repeat(3,62px);grid-template-rows:repeat(3,58px);gap:4px}
-.dpad button{border:2px solid rgba(255,255,255,.18);background:rgba(14,28,24,.62);border-radius:14px;display:grid;place-items:center;touch-action:none;transition:background .15s,border-color .15s,opacity .15s}
+.dpad{position:absolute;z-index:5;left:50%;bottom:calc(4px + env(safe-area-inset-bottom));padding:10px;transform:translateX(-50%);display:grid;grid-template-columns:repeat(3,62px);grid-template-rows:repeat(3,58px);gap:4px;touch-action:none}
+.dpad button{border:2px solid rgba(255,255,255,.22);background:rgba(14,28,24,.34);border-radius:14px;display:grid;place-items:center;touch-action:none;transition:background .15s,border-color .15s,opacity .15s}
 .dpad button svg{width:26px;height:26px;fill:var(--ink);opacity:.85}
 .dpad button.down-now{background:rgba(92,200,192,.45)}
 .dpad [data-dir=up]{grid-column:2;grid-row:1}

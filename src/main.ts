@@ -59,6 +59,7 @@ async function boot(): Promise<void> {
     releaseAll: () => game.releaseAll(),
     item: () => game.eat(),
     blocked: isOverlayOpen,
+    answering: () => game.answering,
   });
   el('btnStart').addEventListener('click', () => game.start());
   el('btnRetry').addEventListener('click', () => game.retry());

@@ -267,6 +267,48 @@ async function timeOneQuiz(page, s) {
   return { limit: s.quiz.limit, took: Math.round((already + (Date.now() - t0) / 1000) * 100) / 100 };
 }
 
+/**
+ * 터치 조작 확인 (마우스 포인터 = 손가락): 마을·전투 어디서든 플레이어 옆 빈 칸 쪽으로
+ * 1) D-pad 한 버튼을 누른 채 다른 버튼으로 미끄러뜨리면 방향이 바뀌는지
+ * 2) 화면을 밀고 손가락을 대고 있으면 계속 걷는지
+ * 몬스터가 다가와 길이 막힐 수 있어서, 문제를 찾으면 글로 돌려주고 없으면 빈 배열
+ */
+async function checkTouch(page) {
+  const problems = [];
+  const center = async (dir) => {
+    const b = await page.locator(`#dpad [data-dir="${dir}"]`).boundingBox();
+    return { x: b.x + b.width / 2, y: b.y + b.height / 2 };
+  };
+  const lit = () => page.evaluate(() => [...document.querySelectorAll('#dpad .down-now')].map((b) => b.dataset.dir).join(','));
+  const left = await center('left');
+  const up = await center('up');
+  const before = (await snap(page)).player;
+  await page.mouse.move(left.x, left.y);
+  await page.mouse.down();
+  await page.waitForTimeout(250);
+  if ((await lit()) !== 'left') problems.push('D-pad 왼쪽을 눌러도 켜지지 않음');
+  await page.mouse.move(up.x, up.y, { steps: 6 });
+  await page.waitForTimeout(250);
+  if ((await lit()) !== 'up') problems.push('D-pad에서 미끄러뜨려도 방향이 안 바뀜');
+  await page.mouse.up();
+  if ((await lit()) !== '') problems.push('D-pad에서 손을 떼도 눌린 채로 남음');
+  await page.waitForTimeout(250);
+  const mid = (await snap(page)).player;
+  if (mid.c === before.c && mid.r === before.r) problems.push('D-pad로 움직이지 않음');
+  // 스와이프하고 대고 있기: 오른쪽으로 두 칸 이상
+  await page.mouse.move(150, 360);
+  await page.mouse.down();
+  await page.mouse.move(210, 360, { steps: 6 });
+  await page.waitForTimeout(500);
+  await page.mouse.up();
+  await page.waitForTimeout(300);
+  const after = (await snap(page)).player;
+  if (after.c - mid.c < 2) problems.push(`스와이프하고 대고 있어도 계속 걷지 않음 (${mid.c} → ${after.c}칸)`);
+  await page.waitForTimeout(300);
+  if ((await snap(page)).player.c !== after.c) problems.push('스와이프에서 손을 떼도 계속 걸음');
+  return problems;
+}
+
 /** 스테이지 한 번 플레이. 결과 화면이 뜰 때까지 (또는 시간 초과) */
 async function playStage(page, rng, shot, flags) {
   const t0 = Date.now();
@@ -432,6 +474,8 @@ async function playOnce(context, url, run) {
     await page.click('#btnFxAll');
     if ((await snap(page)).fx.off.length !== 0) errors.push('전부 켜기가 동작하지 않음');
     await page.click('#btnFxClose');
+    // 몬스터가 다가오기 전에 터치 조작 확인 (1스테이지 시작 위치는 좌우가 비어 있음)
+    if (START_STAGE === 1) errors.push(...(await checkTouch(page)));
   }
   // 프레임 측정 (2초)
   const fps = await page.evaluate(

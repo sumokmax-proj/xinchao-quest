@@ -191,7 +191,7 @@ export const CONFIG = {
   camera: {
     viewWidth: 7.6, // 화면 가로에 보이는 칸 수
     offset: { x: 0, y: 12, z: 6.5 },
-    lookAhead: 2.3, // 플레이어보다 이만큼 위쪽(앞)을 비춤
+    lookAhead: 1.7, // 플레이어보다 이만큼 위쪽(앞)을 비춤 (작을수록 플레이어 아래가 D-pad에 덜 가림)
     followSpeed: 6,
     shakeDecay: 1.4,
   },
@@ -225,6 +225,12 @@ export const CONFIG = {
     vibrateHurt: [40],
     vibrateKill: [20],
     vibrateBossKill: [40, 50, 90],
+  },
+
+  touch: {
+    padDead: 14, // D-pad 한가운데 이 거리(px) 안은 방향 없음
+    padSticky: 12, // 대각선에서 손가락이 이만큼(px) 더 넘어가야 방향이 바뀜
+    swipeMin: 24, // 이보다 짧게(px) 움직이면 스와이프가 아님
   },
 
   render: {

@@ -683,6 +683,11 @@ export class Game {
 
   /* ---------- 입력 ---------- */
 
+  /** 방향 입력이 지금은 "답"인가 (퀴즈, 마을 사람 질문) → 미끄러지는 터치는 답으로 치지 않는다 */
+  get answering(): boolean {
+    return !!this.quiz || this.dialog.asking;
+  }
+
   press(dir: Dir): void {
     if (this.cartoon.isOpen) {
       this.cartoon.next();

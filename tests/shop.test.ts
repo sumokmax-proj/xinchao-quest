@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import shopJson from '../src/data/shop.json';
-import { buy, canBuy, emptyInventory, gearEffects, guardedDamage, pickFood, sanitizeInventory, useItem, type ShopItem } from '../src/core/Shop';
+import { suggestPurchase, buy, canBuy, emptyInventory, gearEffects, guardedDamage, pickFood, sanitizeInventory, useItem, type ShopItem } from '../src/core/Shop';
 
 const ITEMS = shopJson as ShopItem[];
 const item = (id: string) => ITEMS.find((x) => x.id === id)!;
@@ -73,5 +73,22 @@ describe('쓰기와 효과', () => {
   it('깨진 저장 값 고치기', () => {
     expect(sanitizeInventory({ items: { banhmi: 2.5, x: -1 }, gear: ['sword1', 3] })).toEqual({ items: { banhmi: 2 }, gear: ['sword1'] });
     expect(sanitizeInventory(null)).toEqual(emptyInventory());
+  });
+});
+
+describe('쓰러졌을 때 장비 권하기', () => {
+  const inv = (gear: string[] = []) => ({ ...emptyInventory(), gear });
+  const items = shopJson as ShopItem[];
+
+  it('살 수 있으면 갑옷부터', () => {
+    expect(suggestPurchase(items, inv(), 500000)?.id).toBe('armor1');
+  });
+  it('가진 것은 건너뛰고 다음 것', () => {
+    expect(suggestPurchase(items, inv(['armor1']), 500000)?.id).toBe('sword1');
+    expect(suggestPurchase(items, inv(['armor1', 'sword1']), 500000)?.id).toBe('armor2');
+  });
+  it('골드가 모자라거나 다 가졌으면 아무것도 권하지 않음', () => {
+    expect(suggestPurchase(items, inv(), 1000)).toBeNull();
+    expect(suggestPurchase(items, inv(['armor1', 'sword1', 'armor2', 'sword2']), 9_000_000)).toBeNull();
   });
 });

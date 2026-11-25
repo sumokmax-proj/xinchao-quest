@@ -103,3 +103,15 @@ export function sanitizeInventory(raw: unknown): Inventory {
   if (Array.isArray(r.gear)) inv.gear = r.gear.filter((x): x is string => typeof x === 'string');
   return inv;
 }
+
+/** 쓰러졌을 때 권할 장비 순서: 덜 맞는 것(갑옷)부터 */
+const HELP_ORDER = ['armor1', 'sword1', 'armor2', 'sword2'];
+
+/** 지금 골드로 살 수 있고 도움이 될 장비 하나. 없으면 null */
+export function suggestPurchase(items: readonly ShopItem[], inv: Inventory, gold: number): ShopItem | null {
+  for (const id of HELP_ORDER) {
+    const item = items.find((x) => x.id === id);
+    if (item && canBuy(item, inv, gold) === 'ok') return item;
+  }
+  return null;
+}

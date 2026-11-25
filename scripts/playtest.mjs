@@ -17,6 +17,7 @@
  *   --level 6          시작 레벨 (--stage와 함께)
  *   --campaign         이기면 다음 스테이지, 지면 같은 스테이지를 다시 (마지막 스테이지를 깨거나 --max-plays까지)
  *   --max-plays 20     --campaign에서 최대 몇 번 플레이할지 (기본 20)
+ *   --no-shop          마을에서 상점에 들르지 않고 성문으로만 간다 (장비·음식 없이 막히는 곳이 있는지 확인)
  *   --gallery          플레이하지 않고 모든 몬스터를 한 화면에 세워 스크린샷만 (모델 확인용)
  *
  * 처음 한 번은 브라우저 설치가 필요할 수 있다: npx playwright install chromium
@@ -43,6 +44,7 @@ const CAMPAIGN = args.includes('--campaign');
 const MAX_PLAYS = Number(opt('max-plays', 20));
 const GALLERY = args.includes('--gallery');
 const REVIEW = Number(opt('review', 0));
+const NO_SHOP = args.includes('--no-shop');
 const WORDS = JSON.parse(readFileSync('src/data/words.json', 'utf8'));
 const STAGES = JSON.parse(readFileSync('src/data/stages.json', 'utf8'));
 /** --stage로 건너뛸 때 시작 레벨 추정 (캠페인 점검 결과로 맞춤) */
@@ -171,7 +173,7 @@ async function shopBuy(page, ids, wants) {
  * 결과 화면에서 "마을" 버튼을 누른 직후 부른다.
  */
 async function villageRoutine(page, rng, shot, flags) {
-  const plan = ['food', 'gear', 'question', 'gate'];
+  const plan = NO_SHOP ? ['gate'] : ['food', 'gear', 'question', 'gate'];
   const t0 = Date.now();
   let step = 0;
   while (Date.now() - t0 < 60000 && step < plan.length) {
@@ -394,6 +396,10 @@ async function playStage(page, rng, shot, flags) {
   const final = await snap(page);
   if (!flags.stageShots.has(stage.index) || final.result !== 'win') {
     await shot(`s${stage.index + 1}-end-${final.result ?? 'timeout'}`);
+    if (final.result === 'lose' && !flags.loseShot && (await page.isVisible('#endTip'))) {
+      await shot('lose-tip');
+      flags.loseShot = true;
+    }
     // 결과 화면은 첫 번째와 엔딩
     if (!flags.endSmall || final.ending) await shot.small('end');
     flags.endSmall = true;
@@ -605,7 +611,7 @@ const md = [
   `# 자동 플레이 점검 ${stamp}`,
   '',
   `봇 설정: 퀴즈 오답률 ${WRONG_RATE * 100}%, 예고 피하는 확률 ${DODGE * 100}%, 한 판 최대 ${TIMEOUT / 1000}초, ${RUNS}번` +
-    `${START_STAGE > 1 ? `, ${START_STAGE}스테이지부터` : ''}${CAMPAIGN ? ', 캠페인(이기면 다음 스테이지)' : ''}${KEEP_SAVE ? ', 저장 이어서' : ''}`,
+    `${START_STAGE > 1 ? `, ${START_STAGE}스테이지부터` : ''}${CAMPAIGN ? ', 캠페인(이기면 다음 스테이지)' : ''}${NO_SHOP ? ', 상점 안 감' : ''}${KEEP_SAVE ? ', 저장 이어서' : ''}`,
   '',
   '| 회차 | 스테이지 | 결과 | 시간(초) | 웨이브 | 레벨 | 처치 | 퀴즈 정답 | 새 단어 | 맞은 횟수 | 최저 HP | 최대 드로우콜 | 최대 삼각형 | 최대 도형 수 |',
   '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |',

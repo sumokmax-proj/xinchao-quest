@@ -180,6 +180,8 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
 }
 .btnrow{display:grid;grid-template-columns:1fr 1fr 2fr;gap:8px}
 .btnrow.two{grid-template-columns:1fr 2fr}
+.endtip{margin:0;align-self:center;background:#3a2c12;border:1px solid var(--gold);border-radius:12px;padding:8px 14px;font-size:13px;color:var(--gold);text-align:center}
+.btnrow .btn.urge{border:2px solid var(--gold);animation:teach .9s ease-in-out infinite}
 .btnrow .btn{padding:0 6px}
 /* 스테이지 목록 */
 .stage{display:flex;align-items:center;gap:12px;width:100%;text-align:left;min-height:64px;border:1px solid var(--line);border-radius:14px;background:var(--panel);padding:8px 12px}

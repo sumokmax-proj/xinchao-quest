@@ -6,6 +6,7 @@ export interface EndSummary {
   stageName: string;
   stars: number; // 이번 판의 별 (0 = 짐)
   starHint: string; // 다음 별을 받는 조건 한 줄 (다 받았으면 '')
+  tip: string; // 쓰러졌을 때만: 마을에서 할 수 있는 것 한 줄. 있으면 "마을" 버튼이 깜빡임
   hasNext: boolean; // 이겼고 다음 스테이지가 있음 → 큰 버튼이 "다음 스테이지"
   isLast: boolean;
   /** 마지막 스테이지를 깼을 때: 지금까지의 전체 기록 */
@@ -88,6 +89,9 @@ export function showEnd(s: EndSummary): void {
     el('endTitle').textContent = '고블린 왕을 물리쳤어요!';
     el('endSub').textContent = '마을 앞부터 요새까지, 베트남어로 길을 열었어요';
   }
+  el('endTip').hidden = !s.tip;
+  el('endTip').textContent = s.tip;
+  el('btnMenu').classList.toggle('urge', !!s.tip);
   const box = el('endStars');
   box.hidden = !s.stars;
   const hint = document.createElement('small');

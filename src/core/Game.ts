@@ -50,7 +50,7 @@ import { clearProgress, loadSave, persist, type SaveData } from './Save';
 import { Timers } from './Timers';
 import { WaveProgress } from './Waves';
 import { activeNpcs, builtSet, nextBuilding, pickVillageQuestion, questionOptions, touchAt, type Npc, type VillageData } from './Village';
-import { buy, gearEffects, guardedDamage, pickFood, useItem, type GearEffects, type ShopItem } from './Shop';
+import { buy, gearEffects, guardedDamage, pickFood, suggestPurchase, useItem, type GearEffects, type ShopItem } from './Shop';
 import { isUnlocked, lastUnlocked, pickPool, recordClear, starsFor, scaleEnemy, stageWords, type StageData } from './Stages';
 
 const STAGES = stagesJson as StageData[];
@@ -536,7 +536,10 @@ export class Game {
     const stars = starsFor(win, this.run.correct, this.run.quiz, CONFIG.stars);
     if (win) this.save.stages = recordClear(this.save.stages, this.stage.id, seconds, stars);
     persist(this.save);
+    // 졌고, 마을을 알고, 살 수 있는 장비가 있으면: 그 자리에서만 한 줄로 알려준다
+    const help = !win && this.save.stages[STAGES[0].id] ? suggestPurchase(SHOP, this.save.inventory, this.save.profile.gold) : null;
     const summary: EndSummary = {
+__X__
       win,
       stageName: this.stage.name,
       stars,

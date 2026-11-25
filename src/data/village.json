@@ -42,12 +42,12 @@
     { "id": "kid", "name": "동네 꼬마", "at": { "c": 8, "r": 9 }, "building": "fountain", "role": "question", "look": "kid" }
   ],
   "questions": [
-    { "status": "draft", "q": "Ăn cơm chưa?", "ko": "밥 먹었어요? (인사)", "right": "Ăn rồi, cảm ơn.", "rightKo": "먹었어요, 고마워요.", "wrong": "Tôi là người Hàn Quốc.", "wrongKo": "저는 한국 사람이에요." },
-    { "status": "draft", "q": "Ăn được rau mùi không?", "ko": "고수 먹을 수 있어요?", "right": "Được, tôi thích rau mùi.", "rightKo": "네, 고수 좋아해요.", "wrong": "Bây giờ là ba giờ.", "wrongKo": "지금은 세 시예요." },
-    { "status": "draft", "q": "Biết nói tiếng Việt à?", "ko": "베트남어 할 줄 알아요?", "right": "Một chút thôi.", "rightKo": "조금만요.", "wrong": "Hai mươi nghìn.", "wrongKo": "이만 동." },
-    { "status": "draft", "q": "Sống ở đây có quen không?", "ko": "여기 생활 익숙해요?", "right": "Quen rồi.", "rightKo": "익숙해졌어요.", "wrong": "Rẽ trái.", "wrongKo": "왼쪽으로 꺾으세요." },
-    { "status": "draft", "q": "Ăn được đồ ăn Việt Nam không?", "ko": "베트남 음식 먹을 수 있어요?", "right": "Được, ngon lắm!", "rightKo": "네, 정말 맛있어요!", "wrong": "Tôi ở Hà Nội.", "wrongKo": "저는 하노이에 살아요." },
-    { "status": "draft", "q": "Bạn ở đâu?", "ko": "어디 살아요?", "right": "Tôi ở Hà Nội.", "rightKo": "저는 하노이에 살아요.", "wrong": "Ăn rồi, cảm ơn.", "wrongKo": "먹었어요, 고마워요." },
-    { "status": "draft", "q": "Bạn làm nghề gì?", "ko": "무슨 일 해요?", "right": "Tôi làm việc ở công ty.", "rightKo": "회사에서 일해요.", "wrong": "Một chút thôi.", "wrongKo": "조금만요." }
+    { "q": "Ăn cơm chưa?", "ko": "밥 먹었어요? (인사)", "right": "Ăn rồi, cảm ơn.", "rightKo": "먹었어요, 고마워요.", "wrong": "Tôi là người Hàn Quốc.", "wrongKo": "저는 한국 사람이에요." },
+    { "q": "Ăn được rau mùi không?", "ko": "고수 먹을 수 있어요?", "right": "Được, tôi thích rau mùi.", "rightKo": "네, 고수 좋아해요.", "wrong": "Bây giờ là ba giờ.", "wrongKo": "지금은 세 시예요." },
+    { "q": "Biết nói tiếng Việt à?", "ko": "베트남어 할 줄 알아요?", "right": "Một chút thôi.", "rightKo": "조금만요.", "wrong": "Hai mươi nghìn.", "wrongKo": "이만 동." },
+    { "q": "Sống ở đây có quen không?", "ko": "여기 생활 익숙해요?", "right": "Quen rồi.", "rightKo": "익숙해졌어요.", "wrong": "Rẽ trái.", "wrongKo": "왼쪽으로 꺾으세요." },
+    { "q": "Ăn được đồ ăn Việt Nam không?", "ko": "베트남 음식 먹을 수 있어요?", "right": "Được, ngon lắm!", "rightKo": "네, 정말 맛있어요!", "wrong": "Tôi sống ở Hà Nội.", "wrongKo": "저는 하노이에 살아요." },
+    { "q": "Bạn sống ở đâu?", "ko": "어디 살아요?", "right": "Tôi sống ở Hà Nội.", "rightKo": "저는 하노이에 살아요.", "wrong": "Ăn rồi, cảm ơn.", "wrongKo": "먹었어요, 고마워요." },
+    { "q": "Bạn làm nghề gì?", "ko": "무슨 일 해요?", "right": "Tôi làm việc ở công ty.", "rightKo": "회사에서 일해요.", "wrong": "Một chút thôi.", "wrongKo": "조금만요." }
   ]
 }

@@ -6,7 +6,7 @@ export interface Word {
   vi: string;
   ko: string;
   topic?: string;
-  status?: string; // "draft": Claude가 넣은 뒤 오너 검수 전
+  status?: string; // "check": Claude 1차 검수에서 자신이 없어 사람 확인이 필요한 것 (note에 이유)
 }
 
 /** normal: 뜻 ↔ 베트남어 / tone: 성조만 다른 단어 중에서 뜻에 맞는 것 고르기 */

@@ -404,7 +404,7 @@ export class Game {
         this.shop.open(SHOP.filter((x) => x.shop === 'food'), this.save.inventory, this.save.profile.gold, '반미 가게', 'Bánh mì nóng đây! · 따끈한 반미 있어요!');
         break;
       case 'gear':
-        this.shop.open(SHOP.filter((x) => x.shop === 'gear'), this.save.inventory, this.save.profile.gold, '대장간', 'Kiếm tốt đây! · 좋은 검 있어요!');
+        this.shop.open(SHOP.filter((x) => x.shop === 'gear'), this.save.inventory, this.save.profile.gold, '대장간', 'Kiếm tốt lắm đây! · 좋은 검 있어요!');
         break;
       case 'book':
         this.openBook();

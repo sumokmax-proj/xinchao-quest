@@ -11,6 +11,7 @@ export class QuizBubble {
   private timer = el('qTimer');
   private dim = el('dim');
   private dpad = el('dpad');
+  private phaseHead = el('qPhase');
 
   constructor(onAnswer: (side: 0 | 1) => void) {
     this.btns[0].addEventListener('click', () => onAnswer(0));
@@ -27,6 +28,11 @@ export class QuizBubble {
     this.root.hidden = true;
     this.dim.classList.remove('on');
     this.dpad.classList.remove('quizmode');
+  }
+
+  /** 지역 보스의 HP 단계 퀴즈: 말풍선 안에 한 줄로 알려준다 (따로 띄우면 문제를 가림) */
+  setPhase(on: boolean): void {
+    this.phaseHead.hidden = !on;
   }
 
   /** 처음 퀴즈를 만난 사람에게 ←/→ 답 버튼을 깜빡여 보여준다 */

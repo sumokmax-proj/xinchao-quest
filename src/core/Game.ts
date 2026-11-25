@@ -544,6 +544,10 @@ export class Game {
       if (win && !this.seen('village')) el('btnRetry').textContent = '마을로 ▶';
       if (this.ending) el('btnRetry').textContent = '마을로 돌아가기';
       el('btnMenu').textContent = this.save.stages[STAGES[0].id] ? '마을' : '처음';
+      // 큰 버튼이 이미 마을로 가면 "마을" 버튼을 또 보여주지 않는다
+      const bigGoesToVillage = this.ending || (win && !this.seen('village'));
+      el('btnMenu').hidden = bigGoesToVillage;
+      el('btnMenu').parentElement!.classList.toggle('two', bigGoesToVillage);
     };
     if (this.ending) this.story('ending', show);
     else show();
@@ -837,7 +841,7 @@ export class Game {
       locked: false,
       question: this.newQuestion(g, phase),
     };
-    if (phase) banner('왕이 비틀거린다!', '맞히면 큰 피해');
+    this.bubble.setPhase(phase);
     this.showQuestion();
     this.bubble.setTeach(!this.save.answeredQuiz);
     this.bubble.show();

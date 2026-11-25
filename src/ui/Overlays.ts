@@ -116,4 +116,12 @@ export function showEnd(s: EndSummary): void {
   el('endWrongsHead').textContent = `틀린 단어 ${s.wrongWords.size}개`;
   fillWords('endWrongs', s.wrongWords, '틀린 단어가 없어요');
   el('endOv').hidden = false;
+  // 목록이 길어 잘리면 아래쪽을 흐리게 → "더 있으니 밀어 보라"는 표시. 끝까지 밀면 사라진다
+  for (const id of ['endLearned', 'endWrongs']) {
+    const ul = el(id);
+    const mark = () => ul.classList.toggle('more', ul.scrollTop + ul.clientHeight < ul.scrollHeight - 2);
+    ul.scrollTop = 0;
+    ul.onscroll = mark;
+    mark();
+  }
 }

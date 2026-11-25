@@ -12,6 +12,7 @@ import { sfx, setPitchVary, setSoundEnabled, unlockAudio } from '../audio/Sfx';
 import { vibrate } from '../audio/Haptics';
 import { fxOn, setAllFx, toggleFx, type FxId } from './Fx';
 import { TimeFx } from './TimeFx';
+import { PlayClock } from './PlayClock';
 import { dueWords, isDue, recordReview } from './Review';
 import { dailyReward, dailyView, dayKey, recordCorrect } from './Daily';
 import { drawDaily } from '../ui/DailyView';
@@ -135,10 +136,12 @@ export class Game {
   private held: Dir[] = []; // 누르고 있는 방향 (마지막이 우선)
   private queued: Dir | null = null; // 한 번 톡 누른 방향 (이동 중이어도 다음 칸에서 실행)
   private hintHidden = false;
-  private run = { quiz: 0, correct: 0, wrong: new Map<string, string>(), learned: new Map<string, string>(), kills: 0, start: 0 };
+  private run = { quiz: 0, correct: 0, wrong: new Map<string, string>(), learned: new Map<string, string>(), kills: 0, seconds: 0 };
   private result: 'win' | 'lose' | null = null;
   private hurtCount = 0;
   private readonly timeFx = new TimeFx(); // 히트스톱·슬로 모션
+  private readonly clock = new PlayClock(); // 실제로 논 시간 (설정 창·내려 둔 탭 제외)
+  private started = false; // "모험 시작"을 누른 뒤부터 시간을 센다
   private readonly shockwaves: Shockwaves;
 
   constructor() {
@@ -240,7 +243,7 @@ export class Game {
     this.atkBuffed = false;
     this.stageQuizTime = 0;
     this.cam.snapTo(this.player.x, this.player.z);
-    this.run = { quiz: 0, correct: 0, wrong: new Map(), learned: new Map(), kills: 0, start: performance.now() };
+    this.run = { quiz: 0, correct: 0, wrong: new Map(), learned: new Map(), kills: 0, seconds: 0 };
     this.result = null;
     this.hurtCount = 0;
     this.waves = new WaveProgress(this.stage.waves.length);
@@ -356,6 +359,7 @@ export class Game {
 
   /** 마을로 돌아오기: 새로 지어진 건물이 있으면 알려준다. 처음 오면 도착 컷 */
   enterVillage(): void {
+    this.started = true;
     unlockAudio();
     hideStart();
     hideEnd();
@@ -511,6 +515,7 @@ export class Game {
   }
 
   private beginRun(): void {
+    this.started = true;
     this.running = true;
     this.save.profile = { ...this.save.profile, runs: this.save.profile.runs + 1 };
     persist(this.save);
@@ -520,12 +525,11 @@ export class Game {
     this.running = false;
     playMusic(null);
     this.result = win ? 'win' : 'lose';
-    const seconds = Math.round((performance.now() - this.run.start) / 1000);
+    const seconds = Math.round(this.run.seconds);
     const isLast = this.stageIndex === STAGES.length - 1;
     this.ending = win && isLast;
     this.save.profile = {
       ...this.save.profile,
-      seconds: this.save.profile.seconds + seconds,
       clears: this.save.profile.clears + (win ? 1 : 0),
       ended: this.save.profile.ended + (this.ending ? 1 : 0),
     };
@@ -1079,7 +1083,18 @@ export class Game {
     persist(this.save);
   }
 
+  /** 논 시간을 저장 기록에 더한다 (마을·컷·상점 포함, 처음 화면과 설정 창은 제외) */
+  private countPlayTime(nowMs: number): void {
+    const added = this.clock.tick(nowMs, this.started && !this.paused);
+    if (this.running && this.mode === 'field') this.run.seconds += added;
+    const whole = this.clock.takeWholeSeconds();
+    if (!whole) return;
+    this.save.profile = { ...this.save.profile, seconds: this.save.profile.seconds + whole };
+    if (this.save.profile.seconds % 10 === 0) persist(this.save);
+  }
+
   update(dt: number, nowMs: number): void {
+    this.countPlayTime(nowMs);
     if (this.paused) return;
     this.timers.update(dt);
     const p = this.player;

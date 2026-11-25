@@ -547,6 +547,8 @@ async function playOnce(context, url, run) {
   await page.close();
   if (flags.quizTiming && Math.abs(flags.quizTiming.took - flags.quizTiming.limit) > 0.8)
     errors.push(`퀴즈 시간 초과가 제한시간과 다름: 제한 ${flags.quizTiming.limit}초, 실제 ${flags.quizTiming.took}초`);
+  // 게임이 센 "논 시간"은 봇이 잰 실제 시간과 비슷해야 한다 (마을·컷 포함)
+  if (final.profile.seconds - before.seconds > totalSeconds + 30) errors.push(`게임이 센 플레이 시간 ${final.profile.seconds}초가 실제 ${totalSeconds}초보다 훨씬 김`);
   return { run, rows, quizTiming: flags.quizTiming, totalSeconds, profileBefore: before, profileAfter: final.profile, fps, gpu, errors, shots };
 }
 
@@ -582,6 +584,7 @@ const md = [
   '',
   '## 회차별',
   ...results.map((r) => `- 회차 ${r.run}: 플레이 ${r.rows.length}번, 총 ${r.totalSeconds ?? '-'}초, FPS ${r.fps ?? '-'}, 오류 ${r.errors.length}` +
+    (r.profileAfter ? `, 게임이 센 플레이 시간 ${r.profileAfter.seconds - r.profileBefore.seconds}초` : '') +
     (r.quizTiming ? `, 퀴즈 시간 초과 실측 ${r.quizTiming.took}초 (제한 ${r.quizTiming.limit}초)` : '') +
     (r.profileBefore && r.profileAfter ? ` · Lv ${r.profileBefore.level}→${r.profileAfter.level}, 골드 ${r.profileBefore.gold}→${r.profileAfter.gold}, 도감 ${r.profileBefore.collected}→${r.profileAfter.collected}, 클리어 ${r.profileAfter.clears}` : '')),
   '',

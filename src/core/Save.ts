@@ -1,5 +1,6 @@
 import type { WrongNote } from '../combat/QuizSystem';
 import { sanitizeFxOff, type FxId } from './Fx';
+import { freshDaily, sanitizeDaily, type DailyState } from './Daily';
 import { freshProfile, sanitizeDex, sanitizeProfile, type Dex, type Profile } from './Progress';
 import { sanitizeStageRecords, type StageRecords } from './Stages';
 import { emptyInventory, sanitizeInventory, type Inventory } from './Shop';
@@ -17,13 +18,14 @@ export interface SaveData {
   inventory: Inventory; // 상점에서 산 소모품·장비
   seen: string[]; // 이미 본 스토리 컷 (intro, village, king, ending)
   villageBuilt: number; // 마지막으로 마을에서 본 복구된 건물 수 (새로 지어지면 알려주기용)
+  daily: DailyState; // 오늘의 목표와 연속 출석
   fxOff: FxId[]; // 꺼 둔 타격 연출 (core/Fx.ts)
   devOpen: boolean; // 개발용 "연출 스위치"를 열어 봤나 (설정의 버전 글자를 5번 누르면)
 }
 
 const KEY = 'xinchao-3d-v1';
 
-export const defaultSave = (): SaveData => ({ wrong: {}, sound: true, music: true, pixel: true, answeredQuiz: false, profile: freshProfile(), dex: {}, stages: {}, inventory: emptyInventory(), seen: [], villageBuilt: 0, fxOff: [], devOpen: false });
+export const defaultSave = (): SaveData => ({ wrong: {}, sound: true, music: true, pixel: true, answeredQuiz: false, profile: freshProfile(), dex: {}, stages: {}, inventory: emptyInventory(), seen: [], villageBuilt: 0, fxOff: [], devOpen: false, daily: freshDaily() });
 
 /** 저장된 글자(JSON)를 SaveData로. 내용이 깨져 있거나 예전 형식이어도 빠진 곳은 기본값으로 채운다 */
 export function parseSave(raw: string | null): SaveData {
@@ -40,6 +42,7 @@ export function parseSave(raw: string | null): SaveData {
       save.profile = sanitizeProfile(parsed.profile);
       save.dex = sanitizeDex(parsed.dex);
       save.fxOff = sanitizeFxOff(parsed.fxOff);
+      save.daily = sanitizeDaily(parsed.daily);
       if (typeof parsed.devOpen === 'boolean') save.devOpen = parsed.devOpen;
       save.stages = sanitizeStageRecords(parsed.stages);
       save.inventory = sanitizeInventory(parsed.inventory);
@@ -71,5 +74,5 @@ export function persist(save: SaveData): void {
 
 /** 진행 초기화 (설정은 남긴다) */
 export function clearProgress(save: SaveData): SaveData {
-  return { ...save, wrong: {}, profile: freshProfile(), dex: {}, stages: {}, inventory: emptyInventory(), seen: [], villageBuilt: 0, answeredQuiz: false };
+  return { ...save, wrong: {}, profile: freshProfile(), dex: {}, stages: {}, inventory: emptyInventory(), seen: [], villageBuilt: 0, answeredQuiz: false, daily: freshDaily() };
 }

@@ -183,6 +183,13 @@ export const CONFIG = {
     answerGold: 2000, // 마을 사람 질문에 맞게 대답하면 받는 골드
   },
 
+  daily: {
+    goal: 10, // 오늘의 목표: 하루 정답 수
+    reward: 20000, // 채우면 받는 골드
+    streakBonus: 5000, // 연속으로 채운 날마다 더하는 골드
+    maxBonusDays: 6, // 보너스는 이 날수까지 (7일째부터는 같은 금액)
+  },
+
   wave: {
     nextDelay: 1.1, // 웨이브를 다 잡고 다음 웨이브까지
     clearDelay: 1.2, // 마지막 웨이브 후 클리어 화면까지

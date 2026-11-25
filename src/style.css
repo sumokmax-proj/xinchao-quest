@@ -181,6 +181,18 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
 .profile{margin:0;text-align:center;font-size:14px;color:var(--muted)}
 .profile b{color:var(--ink);font-family:var(--font-display);font-weight:400;font-size:17px}
 .profile .g{color:var(--gold)}
+/* 오늘의 목표 */
+.daily{display:flex;align-items:center;gap:8px;align-self:center;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:6px 14px;font-size:12px;font-weight:700;color:var(--muted);white-space:nowrap}
+.daily i{display:block;width:84px;height:8px;border-radius:999px;background:linear-gradient(90deg,var(--gold) calc(var(--k)*100%),rgba(255,255,255,.14) 0)}
+.daily b{color:var(--ink);font-variant-numeric:tabular-nums}
+.daily em{font-style:normal;color:var(--gold);display:flex;align-items:center;gap:4px}
+.daily em::before{content:"";width:9px;height:12px;background:#ff8a3a;border-radius:50% 50% 50% 50%/62% 62% 38% 38%;clip-path:polygon(50% 0,100% 55%,80% 100%,20% 100%,0 55%,22% 30%,36% 46%)}
+.daily.done{border-color:var(--good);color:var(--good)}
+.daily.done i{background:var(--good)}
+.hudaily{position:absolute;z-index:5;left:12px;top:calc(68px + env(safe-area-inset-top));gap:6px;padding:4px 10px;font-size:11px}
+.hudaily i{width:48px;height:6px}
+.hudaily span{font-size:0}
+.hudaily span::before{content:"오늘";font-size:11px}
 /* 단어장 */
 .overlay.book{z-index:11;justify-content:flex-start;background:var(--night);padding-top:calc(20px + env(safe-area-inset-top))}
 .tabs{display:grid;grid-template-columns:1fr 1fr;gap:6px;background:var(--panel);border-radius:14px;padding:4px}

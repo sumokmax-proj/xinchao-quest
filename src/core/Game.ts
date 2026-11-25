@@ -12,6 +12,8 @@ import { sfx, setPitchVary, setSoundEnabled, unlockAudio } from '../audio/Sfx';
 import { vibrate } from '../audio/Haptics';
 import { fxOn, setAllFx, toggleFx, type FxId } from './Fx';
 import { TimeFx } from './TimeFx';
+import { dailyReward, dailyView, dayKey, recordCorrect } from './Daily';
+import { drawDaily } from '../ui/DailyView';
 import { initVoice, setVoiceEnabled, speak } from '../audio/Voice';
 import { musicState, playMusic, setMusicEnabled } from '../audio/Music';
 import { Goblin } from '../entities/Goblin';
@@ -68,6 +70,7 @@ export interface DebugSnapshot {
   goblins: { kind: string; c: number; r: number; hp: number; maxHp: number; state: string; boss: boolean; telegraph: Cell[] }[];
   quiz: { answerSide: 0 | 1; acceptsInput: boolean; locked: boolean; timeLeft: number; limit: number; prompt: string; kind: string; phase: boolean } | null;
   fx: { off: string[]; slowMo: boolean; shockwaves: number };
+  daily: { count: number; goal: number; done: boolean; streak: number };
   wave: { index: number; total: number };
   stage: { index: number; id: string; total: number; unlocked: number };
   items: Record<string, number>;
@@ -246,6 +249,7 @@ export class Game {
     this.queued = null;
     this.spawnWave(0, true);
     this.updateHud();
+    this.drawDailyBars();
   }
 
   /** 시작 화면의 "모험 시작": 처음이면 바로 1스테이지, 깬 스테이지가 있으면 스테이지 목록 */
@@ -344,6 +348,7 @@ export class Game {
     this.held = [];
     this.queued = null;
     Hud.setPlace('씬짜오 마을');
+    this.drawDailyBars();
     el('hint').hidden = true;
     this.updateHud();
   }
@@ -459,8 +464,10 @@ export class Game {
         const gold = CONFIG.village.answerGold;
         this.save.profile = { ...this.save.profile, gold: this.save.profile.gold + gold };
         this.player.stats.gold = this.save.profile.gold;
+        this.countCorrect();
         persist(this.save);
         this.updateHud();
+        this.drawDailyBars();
         setTimeout(() => this.dialog.say(npc.name, 'Giỏi quá!', `잘하네요! "${q.right}" = ${q.rightKo} · +${fmtDong(gold)}`), 700);
       } else {
         sfx.bad();
@@ -546,6 +553,7 @@ export class Game {
       learnedWords: this.run.learned,
     };
     const show = () => {
+      this.drawDailyBars();
       showEnd(summary);
       if (win && !this.seen('village')) el('btnRetry').textContent = '마을로 ▶';
       if (this.ending) el('btnRetry').textContent = '마을로 돌아가기';
@@ -582,10 +590,43 @@ export class Game {
   }
 
   private updateStartNote(): void {
+    this.drawDailyBars();
     const wc = Object.keys(this.save.wrong).length;
     setStartNote(wc ? `지난번에 틀린 단어 ${wc}개가 더 자주 나와요.` : '');
     const { collected, total } = dexProgress(this.save.dex, WORDS);
     setStartProfile(this.save.profile, collected, total, wc, fmtDong(this.save.profile.gold));
+  }
+
+  /* ---------- 오늘의 목표 ---------- */
+
+  private dailyNow() {
+    return dailyView(this.save.daily, dayKey(new Date()), CONFIG.daily.goal);
+  }
+
+  /** 시작 화면·마을·결과 화면의 막대. 처음 하는 사람에게는 안 보여준다. 판 중에는 숨김 (전투에 집중) */
+  private drawDailyBars(): void {
+    const d = this.dailyNow();
+    const known = this.save.profile.runs > 0;
+    drawDaily('startDaily', d, known);
+    drawDaily('endDaily', d, known);
+    // 처음 1스테이지를 깨기 전에는 마을이 없으므로, 마을에 있을 때만
+    drawDaily('hudDaily', d, this.mode === 'village');
+  }
+
+  /** 정답 하나를 오늘의 목표에 더한다. 막 채웠으면 골드를 준다 (퀴즈·마을 질문 공통) */
+  private countCorrect(): void {
+    const c = CONFIG.daily;
+    const r = recordCorrect(this.save.daily, dayKey(new Date()), c.goal);
+    this.save.daily = r.state;
+    if (!r.justDone) return;
+    const gold = dailyReward(r.state.streak, c.reward, c.streakBonus, c.maxBonusDays);
+    this.save.profile = { ...this.save.profile, gold: this.save.profile.gold + gold };
+    this.player.stats.gold += gold;
+    this.timers.after(0.9, () => {
+      toast(`<b>오늘의 목표 달성!</b> +${fmtDong(gold)}${r.state.streak > 1 ? ` · ${r.state.streak}일 연속` : ''}`, 'level');
+      sfx.coin();
+      this.updateHud();
+    });
   }
 
   /* ---------- 타격 연출 (연출 스위치) ---------- */
@@ -900,6 +941,7 @@ export class Game {
     if (rec.newlyLearned) this.run.learned.set(q.word.vi, q.word.ko);
     const pr = this.save.profile;
     this.save.profile = { ...pr, answered: pr.answered + 1, correct: pr.correct + (ok ? 1 : 0) };
+    if (ok) this.countCorrect();
     if (side !== null) {
       // 시간 초과가 아니라 직접 답했으면, 답하는 법을 안 것으로 보고 다음부터 깜빡이지 않음
       this.save.answeredQuiz = true;
@@ -1167,6 +1209,7 @@ export class Game {
       dialog: { open: this.dialog.isOpen, asking: this.dialog.asking, answer: this.talkAnswer },
       npcs: this.npcs.map((n) => ({ id: n.npc.id, c: n.npc.at.c, r: n.npc.at.r, role: n.npc.role })),
       music: musicState(),
+      daily: this.dailyNow(),
       fx: { off: [...this.save.fxOff], slowMo: this.timeFx.slowing, shockwaves: this.shockwaves.count },
       overlay: ['shopOv', 'bookOv', 'stageOv', 'endOv', 'startOv'].find((id) => !el(id).hidden) ?? null,
       items: { ...this.save.inventory.items },

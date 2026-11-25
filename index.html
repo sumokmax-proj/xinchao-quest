@@ -40,6 +40,8 @@
     </div>
   </header>
 
+  <div class="daily hudaily" id="hudDaily" role="img" hidden></div>
+
   <div class="talk" id="talk" hidden>
     <p class="tname" id="talkName"></p>
     <p class="ttext" id="talkText" lang="vi"></p>
@@ -74,6 +76,7 @@
     <h1>씬짜오 퀘스트</h1>
     <p class="sub" lang="vi">Xin Chào Quest</p>
     <p class="profile" id="startProfile" hidden></p>
+    <div class="daily" id="startDaily" role="img" hidden></div>
     <button type="button" class="btn" id="btnStart">모험 시작</button>
     <button type="button" class="btn ghost" id="btnBook">단어장 <small id="bookCount"></small><i class="badge" id="bookBadge" hidden></i></button>
     <p class="note" id="startNote"></p>
@@ -127,6 +130,7 @@
   <section class="overlay" id="endOv" hidden>
     <h2 id="endTitle">클리어</h2>
     <p class="sub" id="endSub"></p>
+    <div class="daily" id="endDaily" role="img" hidden></div>
     <dl class="stats" id="endStats"></dl>
     <div class="wordcols">
       <div><h3 class="listhead good" id="endLearnedHead"></h3><ul class="wrongs learned" id="endLearned"></ul></div>

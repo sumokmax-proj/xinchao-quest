@@ -539,7 +539,7 @@ export class Game {
     // 졌고, 마을을 알고, 살 수 있는 장비가 있으면: 그 자리에서만 한 줄로 알려준다
     const help = !win && this.save.stages[STAGES[0].id] ? suggestPurchase(SHOP, this.save.inventory, this.save.profile.gold) : null;
     const summary: EndSummary = {
-__X__
+      tip: help ? `지금 살 수 있어요: ${help.ko} (${help.desc}) · 대장간 ${fmtDong(help.price)}` : '',
       win,
       stageName: this.stage.name,
       stars,

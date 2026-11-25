@@ -227,7 +227,7 @@
 8. 고블린 왕: HP가 깎이면 "왕이 비틀거린다!" 퀴즈, 이기면 엔딩 컷과 전체 기록
 
 ### 오너 확인 필요
-- **베트남어 검수 (draft)**: 단어 61개(`src/data/words.json`의 `"status": "draft"`, 목록은 사이클 3 + 음식 4개: bánh mì, phở bò, bún chả, cà phê trứng), 마을 사람 질문 7개(`src/data/village.json`의 questions), NPC 인사말(Chào dũng sĩ! / Bánh mì nóng đây! / Kiếm tốt đây! / Giỏi quá! / Hẹn gặp lại!), 엔딩 대사 "Cho tôi một cà phê sữa đá!", "Có ngay!"
+- **베트남어 검수 (draft)**: 사이클 3의 단어 57개는 **오너 검수 완료 (2026-11-25, draft 표시 지움)**. 남은 것: 음식 4개(bánh mì, phở bò, bún chả, cà phê trứng), 마을 사람 질문 7개(`src/data/village.json`의 questions), NPC 인사말(Chào dũng sĩ! / Bánh mì nóng đây! / Kiếm tốt đây! / Giỏi quá! / Hẹn gặp lại!), 엔딩 대사 "Cho tôi một cà phê sữa đá!", "Có ngay!"
 - **스토리 톤**: Lord Banh-mi-sh는 "근엄한 척하는 허당"(반미 모양 왕관, "일단 반미부터 드시오")으로 했음. 카툰 그림은 게임 안에서 코드로 그린 낙서풍. 바꾸고 싶으면 `src/data/story.json`(대사)·`src/ui/cartoonArt.ts`(그림)
 - **호안끼엠 전설(신검·Kim Quy)은 넣지 않았음**: 존중이 필요한 소재라 표현을 정한 뒤에
 - 마을 재건 기준(도감 단어 0/8/18/30/45/65개)과 음식·장비 가격은 `src/data/village.json`, `src/data/shop.json`에서 조정 가능

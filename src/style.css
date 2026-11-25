@@ -217,6 +217,7 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
 .daily.done i{background:var(--good)}
 .hudaily{position:absolute;z-index:5;left:12px;top:calc(68px + env(safe-area-inset-top));gap:6px;padding:4px 10px;font-size:11px}
 .hudaily i{width:48px;height:6px}
+#game:has(#startOv:not([hidden])) .hudaily{display:none} /* 시작 화면에는 가운데 막대만 */
 .hudaily span{font-size:0}
 .hudaily span::before{content:"오늘";font-size:11px}
 /* 단어장 */

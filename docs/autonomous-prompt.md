@@ -1,0 +1,40 @@
+# 자율 개발 시작 프롬프트 (로컬 CLI에 붙여넣기)
+
+## 켜기 전
+1. 폰 claude.ai 설정 → 사용량: 주간 사용량 % 확인, Usage credits 꺼져 있는지 확인
+2. PC 절전 "안 함", 윈도우 업데이트 일시 중지, 노트북은 전원 연결
+3. PowerShell:
+   ```powershell
+   cd C:\dev\claudecode\xinchao-quest
+   claude --dangerously-skip-permissions
+   ```
+4. `/model`로 모델 선택
+
+## 붙여넣을 프롬프트
+```text
+자율 개발 시작. 나는 자리를 비우니 나에게 묻지 말고 스스로 끝까지 진행해.
+
+준비:
+1. git pull, npm install 하고 npm run playtest가 도는지 확인해.
+2. CLAUDE.md("자율 개발 모드"), docs/completion-roadmap.md(특히 "현재 위치"와 "오너 검수 대기"), docs/self-review-rubric.md, docs/dev-journal.md 마지막 사이클과 "오너에게", docs/game-design.md, docs/decisions-log.md를 읽어.
+
+순서:
+- docs/completion-roadmap.md의 M4.5 타격감 다듬기 → M5 마무리 순서로 해. M4.5가 끝나면 v0.8 태그.
+- M4.5의 참고 사이트는 아이디어만 참고하고 코드·그림·소리는 가져오지 마.
+- 로드맵이 끝나면 v1.0 태그는 붙이지 말고 "v1.0 후보"로 일지에 정리해. 그다음은 점검표에서 가장 낮은 항목을 계속 개선해.
+- 베트남어 draft 단어·문장은 더 늘리지 마 (내가 아직 검수 못 했어). 꼭 필요하면 일지에 제안만 적어.
+
+진행 규칙:
+- 사이클마다 점검(npm run playtest와 스크린샷 직접 보기) → 기획 → 개발 → 테스트 → 커밋·일지·push까지 끝내고 바로 다음 사이클로 넘어가.
+- 질문이 생겨도 멈추지 말고 일지의 "오너 확인 필요"에 적고 계속해.
+- 백그라운드 작업(자동 플레이 등)을 기다릴 때 "결과 보고 하겠다"로 대답을 끝내지 마. 결과를 직접 기다렸다가 이어서 해.
+- 사용량 한도로 언제든 멈출 수 있으니 작업을 오래 커밋 안 한 채로 두지 마.
+- 일지의 "오너에게"(한 일 요약, 폰으로 확인할 것, 오너 확인 필요)를 계속 갱신해.
+- 내가 멈추라고 할 때까지 사이클을 계속 반복해.
+```
+
+## 멈췄을 때 이어가기
+- 같은 대화를 이어가려면: `claude --continue --dangerously-skip-permissions`
+- 대답을 끝내고 멈춰 있으면 입력: `/loop 자율 개발 계속해줘. docs/dev-journal.md 마지막 항목부터 이어서, 멈추지 말고 다음 사이클을 진행해.`
+- 멈추기: Esc → "지금 하던 사이클을 마무리해서 검사 통과시키고, 커밋·일지·push까지 한 다음 멈춰." → `/exit`
+- 지시는 `/btw`가 아니라 일반 입력창에 직접 쓴다 (`/btw`로 한 말은 오너 지시로 받아들이지 않음)

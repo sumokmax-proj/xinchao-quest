@@ -89,6 +89,7 @@ tests/               순수 로직 단위 테스트 (vitest)
 - **목표와 순서:** `docs/completion-roadmap.md`. 위에서부터 끝나지 않은 마일스톤을 한다.
 - **점검 기준:** `docs/self-review-rubric.md`. 근거는 `npm run playtest` 리포트·스크린샷·테스트처럼 실제로 확인한 것만.
 - **기록:** `docs/dev-journal.md`. 시작할 때 마지막 항목부터 읽고, 사이클이 끝날 때마다 한 항목씩 쓴다.
+- **시작 프롬프트:** `docs/autonomous-prompt.md` (오너가 CLI에 붙여넣는 글).
 
 한 사이클:
 1. `git pull` → 일지 마지막 항목 읽기

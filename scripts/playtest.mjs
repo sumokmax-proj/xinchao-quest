@@ -317,7 +317,13 @@ async function playStage(page, rng, shot, flags) {
   let lastWave = 0;
   let minHp = Infinity;
   if (!flags.stageShots.has(stage.index)) await shot(`s${stage.index + 1}-wave1`);
+  const perf = { calls: 0, triangles: 0, geometries: 0 };
+  let frames = 0;
   while (Date.now() - t0 < TIMEOUT) {
+    if (frames++ % 20 === 0) {
+      const info = await page.evaluate(() => window.__renderInfo());
+      for (const key of Object.keys(perf)) perf[key] = Math.max(perf[key], info[key]);
+    }
     s = await snap(page);
     minHp = Math.min(minHp, s.player.hp);
     if (s.result) break;
@@ -390,6 +396,7 @@ async function playStage(page, rng, shot, flags) {
     learned: final.stats.learned,
     hurt: final.stats.hurt,
     minHpRatio: Math.round((Math.max(0, minHp) / final.player.maxHp) * 100) + '%',
+    perf,
   };
 }
 
@@ -561,9 +568,9 @@ const md = [
   `봇 설정: 퀴즈 오답률 ${WRONG_RATE * 100}%, 예고 피하는 확률 ${DODGE * 100}%, 한 판 최대 ${TIMEOUT / 1000}초, ${RUNS}번` +
     `${START_STAGE > 1 ? `, ${START_STAGE}스테이지부터` : ''}${CAMPAIGN ? ', 캠페인(이기면 다음 스테이지)' : ''}${KEEP_SAVE ? ', 저장 이어서' : ''}`,
   '',
-  '| 회차 | 스테이지 | 결과 | 시간(초) | 웨이브 | 레벨 | 처치 | 퀴즈 정답 | 새 단어 | 맞은 횟수 | 최저 HP |',
-  '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |',
-  ...allRows.map((r) => `| ${r.run} | ${r.stage ?? '-'} | ${label[r.result] ?? r.result} | ${r.seconds ?? '-'} | ${r.waveReached ?? '-'} | ${r.level ?? '-'} | ${r.kills ?? '-'} | ${r.quiz ?? '-'} | ${r.learned ?? '-'} | ${r.hurt ?? '-'} | ${r.minHpRatio ?? '-'} |`),
+  '| 회차 | 스테이지 | 결과 | 시간(초) | 웨이브 | 레벨 | 처치 | 퀴즈 정답 | 새 단어 | 맞은 횟수 | 최저 HP | 최대 드로우콜 | 최대 삼각형 | 최대 도형 수 |',
+  '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |',
+  ...allRows.map((r) => `| ${r.run} | ${r.stage ?? '-'} | ${label[r.result] ?? r.result} | ${r.seconds ?? '-'} | ${r.waveReached ?? '-'} | ${r.level ?? '-'} | ${r.kills ?? '-'} | ${r.quiz ?? '-'} | ${r.learned ?? '-'} | ${r.hurt ?? '-'} | ${r.minHpRatio ?? '-'} | ${r.perf?.calls ?? '-'} | ${r.perf?.triangles ?? '-'} | ${r.perf?.geometries ?? '-'} |`),
   '',
   '## 회차별',
   ...results.map((r) => `- 회차 ${r.run}: 플레이 ${r.rows.length}번, 총 ${r.totalSeconds ?? '-'}초, FPS ${r.fps ?? '-'}, 오류 ${r.errors.length}` +

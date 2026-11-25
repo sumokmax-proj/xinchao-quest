@@ -3,6 +3,7 @@ import { rand, defaultRng } from '../core/random';
 import type { Grid } from '../world/Grid';
 import type { Theme } from './themes';
 import { prop } from './props';
+import { mergeByMaterial } from './merge';
 
 /**
  * 프로토타입은 three 0.149를 썼다. 최신 three는 색·조명 계산 방식이 바뀌었으므로
@@ -253,6 +254,7 @@ export function buildMap(scene: THREE.Scene, grid: Grid, theme: Theme): THREE.Gr
       }
     root.add(rice);
   }
+  mergeByMaterial(root);
   return root;
 }
 

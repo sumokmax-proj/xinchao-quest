@@ -27,7 +27,12 @@ async function boot(): Promise<void> {
   await loadProps(); // 나무·바위 (30KB). 못 받아도 도형으로 그린다
   const game = new Game();
   // 개발 서버에서만: 자동 플레이 점검용으로 콘솔에서 게임 상태를 볼 수 있게 (배포 빌드에는 안 들어감)
-  if (import.meta.env.DEV) (window as unknown as { __game: Game }).__game = game;
+  if (import.meta.env.DEV) {
+    const dev = window as unknown as { __game: Game; __renderInfo: () => { calls: number; triangles: number; geometries: number } };
+    dev.__game = game;
+    // 한 프레임의 그리기 횟수(드로우콜)·삼각형 수, 살아 있는 도형 수 (계속 늘면 정리가 새는 것)
+    dev.__renderInfo = () => ({ calls: renderer.info.render.calls, triangles: renderer.info.render.triangles, geometries: renderer.info.memory.geometries });
+  }
 
   /** 화면 크기·도트 모드에 맞춰 캔버스 크기 조정. 도트 모드는 가로 약 200px로 그려서 늘린다 */
   function resize(): void {

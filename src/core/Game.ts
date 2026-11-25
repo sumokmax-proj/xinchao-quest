@@ -32,6 +32,7 @@ import { ShopView } from '../ui/ShopView';
 import { Cartoon, type Panel } from '../ui/Cartoon';
 import { Dialog } from '../ui/Dialog';
 import { buildVillageProps, makeNpc } from '../render/village';
+import { mergeByMaterial } from '../render/merge';
 import { loadRigged, type RiggedModel } from '../render/Rigged';
 import { QuizBubble } from '../ui/QuizBubble';
 import { banner, toast } from '../ui/Toasts';
@@ -298,7 +299,9 @@ export class Game {
     applyTheme(this.scene, theme);
     this.mapRoot = buildMap(this.scene, this.grid, theme);
     const collected = collectedOverride ?? dexProgress(this.save.dex, WORDS).collected;
-    this.mapRoot.add(buildVillageProps(this.grid, VILLAGE, builtSet(VILLAGE.buildings, collected)));
+    const buildings = buildVillageProps(this.grid, VILLAGE, builtSet(VILLAGE.buildings, collected));
+    mergeByMaterial(buildings);
+    this.mapRoot.add(buildings);
     for (const npc of activeNpcs(VILLAGE, collected)) {
       const m = makeNpc(npc.look);
       m.group.position.set(this.grid.worldX(npc.at.c), 0, this.grid.worldZ(npc.at.r));

@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import type { EnemyKind } from '../config';
 import { mat } from './scene';
 import { makeGoblin, type GoblinModel } from './models';
+import { mergeByMaterial } from './merge';
 
 /**
  * 스테이지마다 다른 몬스터 모델. 맞는 CC0 에셋이 없어 도형을 조합해 만든다.
@@ -214,7 +215,17 @@ function makeKing(): GoblinModel {
   return m;
 }
 
+/** 몬스터 한 마리의 조각을 재질별로 합친다. 휘두르는 팔(club)과 빈사 별은 따로 움직이므로 그대로 */
 export function makeMonster(kind: EnemyKind): GoblinModel {
+  const model = buildMonster(kind);
+  const keep = new Set<THREE.Material>(model.mats);
+  mergeByMaterial(model.group, { skip: new Set([model.club, model.stars]), keep });
+  mergeByMaterial(model.club, { keep });
+  mergeByMaterial(model.stars);
+  return model;
+}
+
+function buildMonster(kind: EnemyKind): GoblinModel {
   switch (kind) {
     case 'monkey':
       return makeMonkey();

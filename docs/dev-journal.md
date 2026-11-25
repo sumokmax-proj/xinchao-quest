@@ -46,11 +46,12 @@
 - 점수: 단어·문제 1→3 (85개, 유형 2개. 오답노트 화면·도감 화면은 아직)
 - 바꾼 규칙·손맛 값: 없음. config에 `quiz.toneChance: 0.4` 새로 추가 (짝이 있는 단어일 때 성조 문제 확률)
 - 오너 확인 필요 — **베트남어 검수 (draft 57개)**:
-  - 숫자: một 하나(1), hai 둘(2), ba 셋(3), bốn 넷(4), năm 다섯(5)·해(년), sáu 여섯(6), bảy 일곱(7), tám 여덟(8), chín 아홉(9), mười 열(10), trăm 백, nghìn 천 (북부: nghìn, 남부: ngàn)
-  - 카페: cà phê 커피, trà đá 아이스티(차가운 차), nước 물, ngon 맛있다, ngọt 달다, cay 맵다, mặn 짜다, cho tôi 저에게 주세요, cốc 컵(북부, 남부 ly), bát 그릇(북부, 남부 chén), tính tiền 계산하다
-  - 시장: chợ 시장, chờ 기다리다, mua 사다, bán 팔다, bàn 테이블, mưa 비, bao nhiêu tiền 얼마예요?, đắt 비싸다, rẻ 싸다, hoa quả 과일(북부, 남부 trái cây), cá 생선, thịt 고기, muối 소금
-  - 길: đi 가다, rẽ trái 왼쪽으로 꺾다, rẽ phải 오른쪽으로 꺾다 (북부 rẽ, 남부 quẹo), đi thẳng 곧장 가다, ở đâu 어디에, bệnh viện 병원, ngân hàng 은행, sân bay 공항, bay 날다
-  - 시간·일상: hôm nay 오늘, ngày mai 내일, hôm qua 어제, bây giờ 지금, tối 저녁, nằm 눕다, bà 할머니, ốm 아프다(북부), mệt 피곤하다, đói 배고프다, thích 좋아하다, hiểu 이해하다
+  - 숫자: một 하나(1), hai 둘(2), ba 셋(3), bốn 넷(4), năm 다섯(5)·해(년), sáu 여섯(6), bảy 일곱(7), tám 여덟(8), chín 아홉(9), mười 열(10), trăm 백, nghìn 천
+  - 카페: cà phê 커피, trà đá 아이스티(차가운 차), nước 물, ngon 맛있다, ngọt 달다, cay 맵다, mặn 짜다, cho tôi 저에게 주세요, cốc 컵, bát 그릇, tính tiền 계산하다
+  - 시장: chợ 시장, chờ 기다리다, mua 사다, bán 팔다, bàn 테이블, mưa 비, bao nhiêu tiền 얼마예요?, đắt 비싸다, rẻ 싸다, hoa quả 과일, cá 생선, thịt 고기, muối 소금
+  - 길: đi 가다, rẽ trái 왼쪽으로 꺾다, rẽ phải 오른쪽으로 꺾다, đi thẳng 곧장 가다, ở đâu 어디에, bệnh viện 병원, ngân hàng 은행, sân bay 공항, bay 날다
+  - 시간·일상: hôm nay 오늘, ngày mai 내일, hôm qua 어제, bây giờ 지금, tối 저녁, nằm 눕다, bà 할머니, ốm 아프다, mệt 피곤하다, đói 배고프다, thích 좋아하다, hiểu 이해하다
+  - (2026-11-25 오너 결정 #21: 북부 표현만 쓰므로 이 목록의 북부·남부 비교 표기를 지움)
   - 성조 짝(자동): bạn/bán/bàn, mua/mưa, chợ/chờ, năm/nằm, tôi/tối, mười/muối, ba/bà, bảy/bay
 - 다음: 오답노트·단어 도감 화면 (시작 화면에서 열기)
 

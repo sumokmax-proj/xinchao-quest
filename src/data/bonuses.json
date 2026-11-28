@@ -1,0 +1,10 @@
+[
+  { "id": "blade", "name": "빛나는 검", "short": "공격 +15%", "effect": "attack", "value": 0.15, "color": "#ff7a59", "learn": false },
+  { "id": "feather", "name": "매의 깃털", "short": "크리 +10%", "effect": "crit", "value": 0.1, "color": "#f4f1e8", "learn": false },
+  { "id": "shield", "name": "대나무 방패", "short": "피해 -20%", "effect": "guard", "value": 0.2, "color": "#7bc96f", "learn": false },
+  { "id": "snack", "name": "반미 한 조각", "short": "HP 30% 회복", "effect": "heal", "value": 0.3, "color": "#e9b872", "learn": false, "repeat": true },
+  { "id": "purse", "name": "금화 주머니", "short": "골드 +20%", "effect": "gold", "value": 0.2, "color": "#f5c542", "learn": false },
+  { "id": "sand", "name": "모래시계 조각", "short": "퀴즈 +1.5초", "effect": "quizTime", "value": 1.5, "color": "#6ec6ff", "learn": true },
+  { "id": "clover", "name": "네잎 부적", "short": "오답 1번 보호", "effect": "charm", "value": 1, "color": "#ff8fc7", "learn": true },
+  { "id": "scroll", "name": "복습 두루마리", "short": "복습 +1,000₫", "effect": "review", "value": 1000, "color": "#c39bff", "learn": true }
+]

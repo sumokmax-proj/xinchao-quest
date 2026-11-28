@@ -10,7 +10,7 @@ import { makeMonster } from '../render/monsters';
 import { sfx } from '../audio/Sfx';
 import { HpLabel } from '../ui/Labels';
 import type { Cell, Grid, Step } from '../world/Grid';
-import { chooseGoblinStep, isAdjacent } from './goblinBrain';
+import { chooseFleeStep, chooseGoblinStep, isAdjacent } from './goblinBrain';
 
 export type GoblinState = 'idle' | 'dazed' | 'dead';
 
@@ -230,6 +230,14 @@ export class Goblin {
     if (this.moveT < 1) return;
 
     const me = { c: this.c, r: this.r };
+    // 황금 고블린: 공격하지 않고 도망친다
+    if (this.stats.flee) {
+      if (this.moveCooldown > 0) return;
+      const { step, cooldown } = chooseFleeStep(me, ctx.player, this.stats.chaseStepDelay, (c, r) => ctx.isFree(c, r, this), this.rng);
+      this.moveCooldown = cooldown;
+      if (step) this.walk(step);
+      return;
+    }
     // 원거리(개구리): 같은 줄에 들어오면 멈춰서 쏜다
     if (this.stats.pattern === 'ranged' && canShoot(me, ctx.player, this.stats.range, (c, r) => this.grid.isBlocked(c, r))) {
       this.face = faceAngle(Math.sign(ctx.player.c - this.c), Math.sign(ctx.player.r - this.r));
@@ -244,14 +252,16 @@ export class Goblin {
     if (this.moveCooldown > 0) return;
     const { step, cooldown } = chooseGoblinStep(me, ctx.player, this.kind, this.wanderDelay, (c, r) => ctx.isFree(c, r, this), this.rng);
     this.moveCooldown = cooldown;
-    if (step) {
-      this.fromX = this.x;
-      this.fromZ = this.z;
-      this.c += step.dc;
-      this.r += step.dr;
-      this.moveT = 0;
-      this.face = faceAngle(step.dc, step.dr);
-    }
+    if (step) this.walk(step);
+  }
+
+  private walk(step: Step): void {
+    this.fromX = this.x;
+    this.fromZ = this.z;
+    this.c += step.dc;
+    this.r += step.dr;
+    this.moveT = 0;
+    this.face = faceAngle(step.dc, step.dr);
   }
 
   private startTelegraph(target: Cell): void {

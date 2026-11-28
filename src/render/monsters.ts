@@ -18,6 +18,7 @@ export const MONSTER_COLOR: Record<EnemyKind, string> = {
   dog: '#e09a3e',
   frog: '#8fd62f',
   king: '#f2c84b',
+  golden: '#ffd84a',
 };
 
 const flashMat = (color: string) => new THREE.MeshLambertMaterial({ color, emissive: '#000000' });
@@ -215,6 +216,24 @@ function makeKing(): GoblinModel {
   return m;
 }
 
+/** 로그라이트 3단계: 가끔 나타나 도망 다니는 황금 고블린. 금색 몸에 등에는 돈 자루 */
+function makeGolden(): GoblinModel {
+  const m = makeGoblin(false, { skin: '#f2c84b', cloth: '#fff1b8' });
+  const bag = new THREE.Mesh(new THREE.SphereGeometry(0.17, 10, 8), mat('#b5773a'));
+  bag.position.set(0, 0.5, -0.24);
+  bag.scale.set(1, 1.1, 0.8);
+  bag.castShadow = true;
+  m.group.add(bag);
+  const knot = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.12, 6), mat('#8a5226'));
+  knot.position.set(0, 0.7, -0.24);
+  m.group.add(knot);
+  const coin = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.02, 10), mat('#ffe680'));
+  coin.position.set(0.09, 0.56, -0.38);
+  coin.rotation.x = Math.PI / 2;
+  m.group.add(coin);
+  return m;
+}
+
 /** 몬스터 한 마리의 조각을 재질별로 합친다. 휘두르는 팔(club)과 빈사 별은 따로 움직이므로 그대로 */
 export function makeMonster(kind: EnemyKind): GoblinModel {
   const model = buildMonster(kind);
@@ -237,6 +256,8 @@ function buildMonster(kind: EnemyKind): GoblinModel {
       return makeFrog();
     case 'king':
       return makeKing();
+    case 'golden':
+      return makeGolden();
     default:
       return makeGoblin(kind === 'boss');
   }

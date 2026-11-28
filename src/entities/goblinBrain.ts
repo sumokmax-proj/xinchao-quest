@@ -83,3 +83,31 @@ export function firstStepToward(
 
 /** 바로 옆(상하좌우 1칸)에 플레이어가 있으면 공격 예고를 시작할 수 있다 */
 export const isAdjacent = (a: Cell, b: Cell): boolean => manhattan(a, b) === 1;
+
+/**
+ * 황금 고블린(로그라이트 3단계)의 걸음: 공격하지 않고 플레이어에게서 도망친다.
+ * - 쫓아오는 범위(7칸) 안이면: 플레이어와 가장 멀어지는 칸. 같으면 사방이 더 트인 칸(구석에 몰리지 않으려고)
+ * - 멀면 아무 방향이나 어슬렁
+ * 플레이어(한 칸 0.15초)가 훨씬 빠르므로 쫓아가면 잡을 수 있다.
+ */
+export function chooseFleeStep(
+  me: Cell,
+  player: Cell,
+  stepDelay: number,
+  isFree: (c: number, r: number) => boolean,
+  rng: Rng,
+): { step: Step | null; cooldown: number } {
+  const ai = CONFIG.goblinAi;
+  const cooldown = stepDelay + rand(rng, 0, ai.chaseStepJitter);
+  const dirs = shuffle(rng, Object.values(DIRS)).filter((d) => isFree(me.c + d.dc, me.r + d.dr));
+  if (!dirs.length) return { step: null, cooldown };
+  if (manhattan(me, player) > ai.chaseRange) return { step: dirs[0], cooldown: cooldown * 2 };
+  const score = (d: Step) => {
+    const to = { c: me.c + d.dc, r: me.r + d.dr };
+    const open = Object.values(DIRS).filter((n) => isFree(to.c + n.dc, to.r + n.dr)).length;
+    return manhattan(to, player) * 10 + open;
+  };
+  let best = dirs[0];
+  for (const d of dirs) if (score(d) > score(best)) best = d;
+  return { step: best, cooldown };
+}

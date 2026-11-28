@@ -253,6 +253,14 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
 .talk .qa button.wrong{background:#f2a497;border-color:var(--red)}
 /* NPC 이름표 */
 .npcname{position:absolute;left:0;top:0;transform:translate(-50%,-100%);font-size:11px;font-weight:700;color:var(--ink);background:rgba(10,20,17,.62);border-radius:999px;padding:2px 8px;white-space:nowrap;pointer-events:none}
+/* 판 보너스: 바닥 물건 이름표, HUD 칩 */
+.pickname{position:absolute;left:0;top:0;transform:translate(-50%,-100%);font-size:11px;font-weight:700;color:var(--ink);background:rgba(10,20,17,.72);border:1px solid var(--c);border-radius:10px;padding:3px 8px;white-space:nowrap;pointer-events:none;text-align:center;line-height:1.3;animation:pickin .35s ease-out}
+.pickname b{display:block;color:var(--c);font-size:12px}
+@keyframes pickin{from{opacity:0;transform:translate(-50%,-70%)}to{opacity:1;transform:translate(-50%,-100%)}}
+.bonusrow{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+.bonusrow:empty{display:none}
+.bchip{font-size:10px;font-weight:700;padding:2px 7px;border-radius:999px;background:var(--panel);border:1px solid var(--c);color:var(--ink);white-space:nowrap}
+.bchip.pop{animation:starpop .4s ease-out}
 .npcname.new::after{content:"!";display:inline-grid;place-items:center;width:16px;height:16px;margin-left:4px;border-radius:50%;background:var(--gold);color:#2a1a00;font-weight:900;animation:teach .9s ease-in-out infinite}
 /* 카툰 컷 */
 .cut{position:absolute;inset:0;z-index:20;background:#1a1410;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:14px;padding:20px 16px calc(20px + env(safe-area-inset-bottom));cursor:pointer}

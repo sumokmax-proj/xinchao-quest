@@ -34,6 +34,12 @@ export const Hud = {
   setWave(index: number, total: number): void {
     el('waveChip').textContent = `웨이브 ${index + 1} / ${total}`;
   },
+  /** 이번 판에 주운 보너스 칩 (판이 끝나면 비움). 새로 주운 것만 톡 튀어나온다 */
+  setBonuses(list: readonly { short: string; color: string }[]): void {
+    const row = el('bonusRow');
+    const before = row.children.length;
+    row.innerHTML = list.map((b, i) => `<span class="bchip${i >= before ? ' pop' : ''}" style="--c:${b.color}">${b.short}</span>`).join('');
+  },
   setToggles(pixel: boolean, sound: boolean, music: boolean): void {
     el('btnMusic').innerHTML = `배경음 <b>${music ? '켬' : '끔'}</b>`;
     el('btnPixel').innerHTML = `도트 모드 <b>${pixel ? '켬' : '끔'}</b>`;

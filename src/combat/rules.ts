@@ -6,9 +6,9 @@ export interface DamageRoll {
   crit: boolean;
 }
 
-/** 플레이어 공격 데미지: 공격력 × (크리면 1.6) × 0.9~1.1, 반올림 */
-export function rollDamage(attack: number, rng: Rng, p = CONFIG.player): DamageRoll {
-  const crit = rng() < p.critChance;
+/** 플레이어 공격 데미지: 공격력 × (크리면 1.6) × 0.9~1.1, 반올림. critBonus는 판 보너스(매의 깃털)로 늘어난 크리티컬 확률 */
+export function rollDamage(attack: number, rng: Rng, p = CONFIG.player, critBonus = 0): DamageRoll {
+  const crit = rng() < p.critChance + critBonus;
   const damage = Math.round(attack * (crit ? p.critMultiplier : 1) * rand(rng, p.damageSpreadMin, p.damageSpreadMax));
   return { damage, crit };
 }

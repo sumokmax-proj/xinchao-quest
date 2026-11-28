@@ -18,6 +18,7 @@
  *   --campaign         이기면 다음 스테이지, 지면 같은 스테이지를 다시 (마지막 스테이지를 깨거나 --max-plays까지)
  *   --max-plays 20     --campaign에서 최대 몇 번 플레이할지 (기본 20)
  *   --no-shop          마을에서 상점에 들르지 않고 성문으로만 간다 (장비·음식 없이 막히는 곳이 있는지 확인)
+ *   --golden           판을 시작하자마자 황금 고블린을 내보낸다 (도망·잡기 확인용)
  *   --gallery          플레이하지 않고 모든 몬스터를 한 화면에 세워 스크린샷만 (모델 확인용)
  *
  * 처음 한 번은 브라우저 설치가 필요할 수 있다: npx playwright install chromium
@@ -45,6 +46,7 @@ const MAX_PLAYS = Number(opt('max-plays', 20));
 const GALLERY = args.includes('--gallery');
 const REVIEW = Number(opt('review', 0));
 const NO_SHOP = args.includes('--no-shop');
+const GOLDEN = args.includes('--golden');
 const WORDS = JSON.parse(readFileSync('src/data/words.json', 'utf8'));
 const STAGES = JSON.parse(readFileSync('src/data/stages.json', 'utf8'));
 /** --stage로 건너뛸 때 시작 레벨 추정 (캠페인 점검 결과로 맞춤) */
@@ -83,7 +85,7 @@ function firstStep(s, from, goalTest, avoid) {
   return null;
 }
 
-/** 봇이 이번에 누를 키. 우선순위: 퀴즈 → 빨간 칸 피하기 → 고블린 공격 → 고블린에게 다가가기 */
+/** 봇이 이번에 누를 키. 우선순위: 퀴즈 → 빨간 칸 피하기 → 고블린 공격 → 고블린에게 다가가기 → 바닥의 판 보너스 줍기 */
 // 예고 하나마다 "이번엔 피할지"를 한 번만 정한다 (사람처럼 가끔 놓치게)
 const dodgeChoice = new Map();
 function willDodge(key, rng) {
@@ -111,11 +113,20 @@ function decide(s, rng) {
     const d = firstStep(s, p, (n) => !danger.has(k(n.c, n.r)), new Set());
     return d ? d.key : null;
   }
-  const targets = s.goblins.filter((g) => g.state === 'idle');
+  // 황금 고블린이 있으면 먼저 쫓는다 (사람도 반짝이는 쪽을 쫓아갈 것이므로)
+  const idle = s.goblins.filter((g) => g.state === 'idle');
+  const golden = idle.filter((g) => g.kind === 'golden');
+  const targets = golden.length ? golden : idle;
   for (const g of targets) {
     if (Math.abs(g.c - p.c) + Math.abs(g.r - p.r) === 1) return DIRS.find((d) => p.c + d.dc === g.c && p.r + d.dr === g.r).key;
   }
-  if (!targets.length) return null;
+  if (!targets.length) {
+    // 웨이브를 깨면 물건 2개가 떨어진다: 첫 번째 물건(순서는 게임이 섞음)으로 걸어간다
+    const pk = s.run?.pickups?.[0];
+    if (!pk) return null;
+    const d = firstStep(s, p, (n) => n.c === pk.c && n.r === pk.r, danger);
+    return d ? d.key : null;
+  }
   const d = firstStep(s, p, (n) => targets.some((g) => Math.abs(g.c - n.c) + Math.abs(g.r - n.r) === 1), danger);
   return d ? d.key : null;
 }
@@ -324,6 +335,7 @@ async function playStage(page, rng, shot, flags) {
   let lastWave = 0;
   let minHp = Infinity;
   if (!flags.stageShots.has(stage.index)) await shot(`s${stage.index + 1}-wave1`);
+  if (GOLDEN) await page.evaluate(() => window.__game.debugGolden());
   const perf = { calls: 0, triangles: 0, geometries: 0 };
   let frames = 0;
   while (Date.now() - t0 < TIMEOUT) {
@@ -340,6 +352,16 @@ async function playStage(page, rng, shot, flags) {
       flags.teleShots.add(tele.kind);
       await page.waitForTimeout(350);
       await shot('telegraph-' + tele.kind);
+    }
+    if (s.goblins.some((g) => g.kind === 'golden') && !flags.goldenShot) {
+      await page.waitForTimeout(400);
+      await shot('golden');
+      flags.goldenShot = true;
+    }
+    if (s.run?.pickups?.length && !flags.bonusShot) {
+      await page.waitForTimeout(500);
+      await shot('bonus-pickup');
+      flags.bonusShot = true;
     }
     if (s.quiz && !flags.quizShot) {
       await shot('first-quiz');
@@ -416,6 +438,8 @@ async function playStage(page, rng, shot, flags) {
     learned: final.stats.learned,
     hurt: final.stats.hurt,
     minHpRatio: Math.round((Math.max(0, minHp) / final.player.maxHp) * 100) + '%',
+    bonuses: (final.run?.bonuses?.join(' ') || '-') + (final.run && final.run.golden !== 'none' ? ` · 황금 고블린 ${goldenLabel[final.run.golden] ?? final.run.golden}` : ''),
+    waves: (final.run?.waves ?? []).map((w) => w.join('+')).join(' / '),
     perf,
   };
 }
@@ -587,6 +611,7 @@ async function playOnce(context, url, run) {
   return { run, rows, quizTiming: flags.quizTiming, totalSeconds, profileBefore: before, profileAfter: final.profile, fps, gpu, errors, shots };
 }
 
+const goldenLabel = { planned: '안 나옴', out: '남아 있음', caught: '잡음', escaped: '도망감' };
 const label = { win: '클리어', lose: '쓰러짐', timeout: '시간 초과', 'webgl-error': 'WebGL 오류' };
 const server = await createServer({ logLevel: 'error', server: { port: 5199, strictPort: false } });
 await server.listen();
@@ -613,9 +638,12 @@ const md = [
   `봇 설정: 퀴즈 오답률 ${WRONG_RATE * 100}%, 예고 피하는 확률 ${DODGE * 100}%, 한 판 최대 ${TIMEOUT / 1000}초, ${RUNS}번` +
     `${START_STAGE > 1 ? `, ${START_STAGE}스테이지부터` : ''}${CAMPAIGN ? ', 캠페인(이기면 다음 스테이지)' : ''}${NO_SHOP ? ', 상점 안 감' : ''}${KEEP_SAVE ? ', 저장 이어서' : ''}`,
   '',
-  '| 회차 | 스테이지 | 결과 | 시간(초) | 웨이브 | 레벨 | 처치 | 퀴즈 정답 | 새 단어 | 맞은 횟수 | 최저 HP | 최대 드로우콜 | 최대 삼각형 | 최대 도형 수 |',
-  '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |',
-  ...allRows.map((r) => `| ${r.run} | ${r.stage ?? '-'} | ${label[r.result] ?? r.result} | ${r.seconds ?? '-'} | ${r.waveReached ?? '-'} | ${r.level ?? '-'} | ${r.kills ?? '-'} | ${r.quiz ?? '-'} | ${r.learned ?? '-'} | ${r.hurt ?? '-'} | ${r.minHpRatio ?? '-'} | ${r.perf?.calls ?? '-'} | ${r.perf?.triangles ?? '-'} | ${r.perf?.geometries ?? '-'} |`),
+  '| 회차 | 스테이지 | 결과 | 시간(초) | 웨이브 | 레벨 | 처치 | 퀴즈 정답 | 새 단어 | 맞은 횟수 | 최저 HP | 판 보너스 | 최대 드로우콜 | 최대 삼각형 | 최대 도형 수 |',
+  '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |',
+  ...allRows.map((r) => `| ${r.run} | ${r.stage ?? '-'} | ${label[r.result] ?? r.result} | ${r.seconds ?? '-'} | ${r.waveReached ?? '-'} | ${r.level ?? '-'} | ${r.kills ?? '-'} | ${r.quiz ?? '-'} | ${r.learned ?? '-'} | ${r.hurt ?? '-'} | ${r.minHpRatio ?? '-'} | ${r.bonuses ?? '-'} | ${r.perf?.calls ?? '-'} | ${r.perf?.triangles ?? '-'} | ${r.perf?.geometries ?? '-'} |`),
+  '',
+  '## 이번 판의 웨이브 구성 (판마다 섞임)',
+  ...allRows.filter((r) => r.waves).map((r) => `- 회차 ${r.run} 스테이지 ${r.stage}: ${r.waves}`),
   '',
   '## 회차별',
   ...results.map((r) => `- 회차 ${r.run}: 플레이 ${r.rows.length}번, 총 ${r.totalSeconds ?? '-'}초, FPS ${r.fps ?? '-'}, 오류 ${r.errors.length}` +

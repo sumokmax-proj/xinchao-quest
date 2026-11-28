@@ -146,6 +146,24 @@ export const CONFIG = {
       name: '고블린 왕',
       phases: [2 / 3, 1 / 3],
     },
+    /** 로그라이트: 가끔 나타나 도망 다니는 황금 고블린. 공격하지 않고, 잡아서 퀴즈를 맞히면 골드를 많이 준다 */
+    golden: {
+      hp: 24,
+      damage: 0,
+      telegraph: 1,
+      attackRecover: 1,
+      moveDuration: 0.2,
+      chaseStepDelay: 0.24, // 도망칠 때 걸음 간격 (플레이어 한 칸 0.15초보다 느려서 쫓아가면 잡힌다)
+      quizCount: 1,
+      exp: 12,
+      gold: 15000,
+      scale: 0.85,
+      pattern: 'single',
+      range: 1,
+      name: '황금 고블린',
+      phases: [],
+      flee: true,
+    },
   },
 
   goblinAi: {
@@ -201,6 +219,21 @@ export const CONFIG = {
   wave: {
     nextDelay: 1.1, // 웨이브를 다 잡고 다음 웨이브까지
     clearDelay: 1.2, // 마지막 웨이브 후 클리어 화면까지
+  },
+
+  /** 로그라이트: 판마다 바뀌는 것 (core/WaveRoll.ts, core/RunBonus.ts) */
+  run: {
+    // 웨이브 구성 섞기: 몬스터별 강함 점수. 여기에 없는 몬스터(대장·보스)는 섞지 않고 그대로 나온다
+    enemyCost: { goblin: 1, monkey: 1, dog: 1.5, frog: 1.5, buffalo: 2 } as Partial<Record<string, number>>,
+    waveMaxExtra: 1, // 섞은 뒤 몬스터 수는 원래보다 최대 이만큼만 많아짐
+    // 판 보너스 (src/data/bonuses.json): 웨이브를 깨면 바닥에 2개, 하나를 주우면 그 판 동안만
+    pickupDelay: 0.6, // 마지막 몬스터를 잡고 물건이 떨어지기까지
+    struggleWrongRate: 0.25, // 이번 판 오답 비율이 이 이상이면 학습 보조 물건(모래시계·부적·두루마리)을 꼭 하나
+    reviewChanceBoost: 0.8, // 복습 두루마리: 오답노트 단어가 나올 확률 (평소 quiz.reviewChance)
+    // 황금 고블린 (CONFIG.enemies.golden)
+    goldenChance: 0.3, // 판마다 나올 확률 (1스테이지를 처음 깬 뒤부터)
+    goldenDelay: 1.8, // 웨이브가 시작되고 나타나기까지
+    goldenTime: 12, // 이 시간 안에 못 잡으면 도망감
   },
 
   camera: {
@@ -272,4 +305,6 @@ export interface EnemyStats {
   exp: number;
   gold: number;
   scale: number;
+  /** true면 공격하지 않고 도망친다 (황금 고블린) */
+  flee?: boolean;
 }

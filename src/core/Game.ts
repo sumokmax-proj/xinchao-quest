@@ -4,6 +4,7 @@ import wordsJson from '../data/words.json';
 import shopJson from '../data/shop.json';
 import villageJson from '../data/village.json';
 import storyJson from '../data/story.json';
+import bonusesJson from '../data/bonuses.json';
 import { decideBump, faceAngle } from '../combat/BumpAttack';
 import { isCorrect, makeQuestion, resolveQuiz, updateWrongNote, type Question, type Word } from '../combat/QuizSystem';
 import { applyDamage, gainExp, recoverHp, rollDamage } from '../combat/rules';
@@ -48,7 +49,10 @@ import { defaultRng, pick } from './random';
 import { dexProgress, heroStatsFor, recordAnswer } from './Progress';
 import { clearProgress, loadSave, persist, type SaveData } from './Save';
 import { Timers } from './Timers';
-import { WaveProgress } from './Waves';
+import { WaveProgress, type WaveData } from './Waves';
+import { rollWave, stageMix } from './WaveRoll';
+import { combineGuard, isStruggling, noEffects, offerBonuses, pickupCells, runEffects, type BonusDef, type RunEffects } from './RunBonus';
+import { animatePickup, disposePickup, makePickup, type PickupModel } from '../render/pickups';
 import { activeNpcs, builtSet, nextBuilding, pickVillageQuestion, questionOptions, touchAt, type Npc, type VillageData } from './Village';
 import { buy, gearEffects, guardedDamage, pickFood, suggestPurchase, useItem, type GearEffects, type ShopItem } from './Shop';
 import { isUnlocked, lastUnlocked, pickPool, recordClear, starsFor, scaleEnemy, stageWords, type StageData } from './Stages';
@@ -58,6 +62,7 @@ const WORDS = wordsJson as Word[];
 const SHOP = shopJson as ShopItem[];
 const VILLAGE = villageJson as VillageData;
 const STORY = storyJson as Record<string, Panel[]>;
+const BONUSES = bonusesJson as BonusDef[];
 const VILLAGE_MAP = '__village';
 /** KayKit 캐릭터로 보여줄 NPC (look → 파일) */
 const NPC_RIGS: Record<string, string> = { smith: 'npc-barbarian.glb', teacher: 'npc-mage.glb', guard: 'npc-rogue.glb' };
@@ -85,9 +90,14 @@ export interface DebugSnapshot {
   overlay: string | null;
   music: { track: string | null; playing: boolean; steps: number };
   stats: { quiz: number; correct: number; kills: number; hurt: number; learned: number };
+  /** 로그라이트: 이번 판의 웨이브 구성, 주운 보너스, 바닥에 떨어진 물건 */
+  run: { waves: string[][]; bonuses: string[]; pickups: { id: string; c: number; r: number }[]; golden: GoldenState };
   /** 저장된 누적 진행 (판이 끝나도 남음) */
   profile: { level: number; gold: number; kills: number; correct: number; answered: number; runs: number; clears: number; collected: number };
 }
+
+/** 황금 고블린: 이번 판에 안 나옴 / 나올 예정 / 나와 있음 / 잡음 / 도망감 */
+type GoldenState = 'none' | 'planned' | 'out' | 'caught' | 'escaped';
 
 interface QuizRun {
   goblin: Goblin;
@@ -114,6 +124,13 @@ export class Game {
   private readonly particles: Particles;
   private readonly player: Player;
   private waves = new WaveProgress(1);
+  private runWaves: WaveData[] = []; // 이번 판의 웨이브 구성 (판마다 섞음)
+  private bonusTaken: string[] = []; // 이번 판에 주운 보너스 id
+  private bonus: RunEffects = noEffects();
+  private pickups: { def: BonusDef; c: number; r: number; model: PickupModel; label: HTMLDivElement; bornMs: number }[] = [];
+  private afterPick: (() => void) | null = null; // 물건을 주우면 다음 웨이브
+  private goldenWave = -1; // 황금 고블린이 나올 웨이브 (-1이면 이번 판에는 없음)
+  private golden: GoldenState = 'none';
   private readonly bubble: QuizBubble;
   private readonly book = new WordBook();
   private readonly shop = new ShopView((id) => this.buyItem(id));
@@ -201,6 +218,11 @@ export class Game {
     return this.save;
   }
 
+  /** 1스테이지를 한 번이라도 깼나. 로그라이트 요소(판 보너스, 황금 고블린)는 그 뒤부터 */
+  private get veteran(): boolean {
+    return (this.save.stages[STAGES[0].id]?.clears ?? 0) > 0;
+  }
+
   private get stage(): StageData {
     return STAGES[this.stageIndex];
   }
@@ -247,6 +269,9 @@ export class Game {
     this.result = null;
     this.hurtCount = 0;
     this.waves = new WaveProgress(this.stage.waves.length);
+    this.runWaves = this.rollWaves();
+    this.clearRunBonus();
+    this.planGolden();
     // 첫 전투 힌트는 한 번도 해 보지 않은 사람에게만
     el('hint').hidden = pr.runs > 0;
     this.held = [];
@@ -343,6 +368,7 @@ export class Game {
     this.cam.snapTo(this.player.x, this.player.z);
     this.goblins.forEach((g) => g.dispose());
     this.goblins = [];
+    this.clearRunBonus();
     this.shockwaves.clear();
     this.timeFx.reset();
     this.cam.resetFx();
@@ -800,19 +826,165 @@ export class Game {
 
   /* ---------- 웨이브 ---------- */
 
+  /** 이번 판의 웨이브 구성: 대장·보스와 종류마다 한 마리는 그대로, 나머지는 같은 강함 점수로 섞는다 */
+  private rollWaves(): WaveData[] {
+    const cost = CONFIG.run.enemyCost;
+    const mix = stageMix(this.stage.waves, cost);
+    return this.stage.waves.map((w) => ({ ...w, enemies: rollWave(w.enemies, mix, cost, this.rng, CONFIG.run.waveMaxExtra) }));
+  }
+
   private spawnWave(index: number, silent: boolean): void {
-    const w = this.stage.waves[index];
+    const w = this.runWaves[index];
     w.enemies.forEach((k) => this.spawnGoblin(k));
+    if (index === this.goldenWave) this.timers.after(CONFIG.run.goldenDelay, () => this.spawnGolden());
     Hud.setWave(index, this.stage.waves.length);
     if (!silent) banner('웨이브 ' + (index + 1), w.label);
   }
 
-  private spawnGoblin(kind: EnemyKind): void {
-    const occupied: Cell[] = [this.player.cell, ...this.goblins.filter((g) => g.alive).map((g) => ({ c: g.c, r: g.r }))];
+  private spawnGoblin(kind: EnemyKind): Goblin {
+    const occupied: Cell[] = [this.player.cell, ...this.goblins.filter((g) => g.alive).map((g) => ({ c: g.c, r: g.r })), ...this.pickups];
     const ai = CONFIG.goblinAi;
     const cell = findSpawnCell(this.grid, this.map.spawnArea, occupied, this.player.cell, ai.spawnMinDistance, this.rng, ai.spawnMaxTries);
     const stats = scaleEnemy(CONFIG.enemies[kind], this.stage.power, this.stage.damage);
-    this.goblins.push(new Goblin(kind, cell.c, cell.r, this.grid, this.scene, this.rng, stats));
+    const g = new Goblin(kind, cell.c, cell.r, this.grid, this.scene, this.rng, stats);
+    this.goblins.push(g);
+    return g;
+  }
+
+  /* ---------- 황금 고블린 (로그라이트) ---------- */
+
+  /** 판마다 정한 확률로, 마지막이 아닌 웨이브 하나에 황금 고블린을 내보낸다 */
+  private planGolden(): void {
+    this.golden = 'none';
+    this.goldenWave = -1;
+    const n = this.runWaves.length;
+    if (!this.veteran || n < 2 || this.rng() >= CONFIG.run.goldenChance) return;
+    this.goldenWave = Math.floor(this.rng() * (n - 1));
+    this.golden = 'planned';
+  }
+
+  private spawnGolden(): void {
+    if (!this.running || this.mode !== 'field' || this.golden !== 'planned') return;
+    const g = this.spawnGoblin('golden');
+    this.golden = 'out';
+    sfx.coin();
+    this.particles.spark(g.x, g.z, 14, MONSTER_COLOR.golden);
+    toast('<b>반짝!</b> 황금 고블린', 'level');
+    const escape = () => {
+      if (g.gone || !g.alive || !this.running) return;
+      // 퀴즈 중이면 끝날 때까지 기다린다
+      if (g.dazed || this.quiz?.goblin === g) {
+        this.timers.after(1, escape);
+        return;
+      }
+      this.particles.burst(g.x, g.z, 12, MONSTER_COLOR.golden);
+      g.dispose();
+      g.gone = true;
+      this.golden = 'escaped';
+      sfx.bump();
+      toast('황금 고블린이 도망갔다…', '');
+    };
+    this.timers.after(CONFIG.run.goldenTime, escape);
+  }
+
+  /* ---------- 판 보너스 (로그라이트) ---------- */
+
+  private clearPickups(): void {
+    for (const pk of this.pickups) {
+      disposePickup(this.scene, pk.model);
+      pk.label.remove();
+    }
+    this.pickups = [];
+  }
+
+  /** 판이 새로 시작되거나 마을로 가면 보너스는 사라진다 */
+  private clearRunBonus(): void {
+    this.clearPickups();
+    this.afterPick = null;
+    this.bonusTaken = [];
+    this.bonus = noEffects();
+    Hud.setBonuses([]);
+  }
+
+  /** 웨이브를 깬 뒤 바닥에 물건을 떨어뜨린다. 놓을 곳이나 고를 게 없으면 false (바로 다음 웨이브) */
+  private dropPickups(then: () => void): boolean {
+    if (!this.running || this.mode !== 'field') return false;
+    const p = this.player;
+    const offer = offerBonuses(
+      BONUSES,
+      {
+        taken: this.bonusTaken,
+        struggling: isStruggling(this.run.correct, this.run.quiz, CONFIG.run.struggleWrongRate),
+        hasReview: Object.keys(this.save.wrong).length > 0,
+        hurt: p.stats.hp < p.stats.maxHp,
+      },
+      this.rng,
+    );
+    // 플레이어가 지금 가는 칸도 피한다 (이동 중이면 그 칸에 바로 놓이지 않게)
+    const occupied: Cell[] = [p.cell, ...this.goblins.filter((g) => g.alive).map((g) => ({ c: g.c, r: g.r }))];
+    const cells = pickupCells(p.cell, (c, r) => isCellFree(this.grid, c, r, occupied));
+    const n = Math.min(offer.length, cells.length);
+    if (n === 0) return false;
+    const now = performance.now();
+    for (let i = 0; i < n; i++) {
+      const def = offer[i];
+      const cell = cells[i];
+      const model = makePickup(def.color);
+      model.group.position.set(this.grid.worldX(cell.c), 0, this.grid.worldZ(cell.r));
+      model.group.scale.setScalar(0.001);
+      this.scene.add(model.group);
+      const label = document.createElement('div');
+      label.className = 'pickname';
+      label.style.setProperty('--c', def.color);
+      label.innerHTML = `<b>${esc(def.name)}</b>${esc(def.short)}`;
+      el('labels').appendChild(label);
+      this.pickups.push({ def, c: cell.c, r: cell.r, model, label, bornMs: now });
+      this.particles.spark(model.group.position.x, model.group.position.z, 8, def.color);
+    }
+    this.afterPick = then;
+    sfx.coin();
+    // 처음 한 번만 한 줄로: 하나만 고를 수 있다는 것
+    if (!this.seen('bonus')) banner('웨이브 클리어!', n > 1 ? '하나를 골라 주우세요' : '주워 가세요');
+    return true;
+  }
+
+  /** 물건이 있는 칸으로 걸어가면 줍는다. 나머지 물건은 사라지고 다음 웨이브 */
+  private collectAt(cell: Cell): void {
+    const pk = this.pickups.find((x) => x.c === cell.c && x.r === cell.r);
+    if (!pk) return;
+    const def = pk.def;
+    const p = this.player;
+    this.bonusTaken.push(def.id);
+    this.bonus = runEffects(BONUSES, this.bonusTaken);
+    if (def.effect === 'heal') {
+      const heal = Math.round(p.stats.maxHp * def.value);
+      p.stats.hp = Math.min(p.stats.maxHp, p.stats.hp + heal);
+      floatText(this.cam.camera, p.x, 1.4, p.z, '+' + heal, 'heal');
+    }
+    if (def.effect === 'charm') this.charmsLeft += def.value;
+    for (const other of this.pickups) if (other !== pk) this.particles.burst(other.model.group.position.x, other.model.group.position.z, 6, '#cccccc');
+    this.particles.spark(pk.model.group.position.x, pk.model.group.position.z, 14, def.color);
+    this.clearPickups();
+    sfx.level();
+    toast(`<b>${esc(def.name)}</b> ${esc(def.short)} · 이번 판`, 'level');
+    // HUD 칩은 판 동안 계속되는 효과만 (회복은 주울 때 끝남)
+    Hud.setBonuses(this.bonusTaken.map((id) => BONUSES.find((b) => b.id === id)).filter((b): b is BonusDef => !!b && b.effect !== 'heal'));
+    this.updateHud();
+    this.markSeen('bonus');
+    const then = this.afterPick;
+    this.afterPick = null;
+    then?.();
+  }
+
+  /** 복습 두루마리: 오답노트에 있던 단어를 맞히면 골드 */
+  private reviewBonus(vi: string): void {
+    const gold = this.bonus.review;
+    this.save.profile = { ...this.save.profile, gold: this.save.profile.gold + gold };
+    this.player.stats.gold += gold;
+    this.timers.after(0.7, () => {
+      toast(`<b>${esc(vi)}</b> 복습 성공 +${fmtDong(gold)}`, 'level');
+      this.updateHud();
+    });
   }
 
   /* ---------- 점유 ---------- */
@@ -823,7 +995,7 @@ export class Game {
 
   /** 고블린 self가 (c, r)로 갈 수 있나: 막힘 없음 + 플레이어·다른 고블린 없음 */
   private freeFor(c: number, r: number, self: Goblin): boolean {
-    const occupied: Cell[] = [this.player.cell];
+    const occupied: Cell[] = [this.player.cell, ...this.pickups];
     for (const g of this.goblins) if (g !== self && g.alive) occupied.push({ c: g.c, r: g.r });
     return isCellFree(this.grid, c, r, occupied);
   }
@@ -852,6 +1024,7 @@ export class Game {
         return true;
       case 'move':
         p.moveTo(result.to);
+        this.collectAt(result.to);
         return true;
     }
   }
@@ -861,7 +1034,7 @@ export class Game {
     p.attackCooldown = CONFIG.player.attackCooldown;
     p.swing();
     sfx.swing();
-    const { damage, crit } = rollDamage(p.stats.attack, this.rng);
+    const { damage, crit } = rollDamage(Math.round(p.stats.attack * (1 + this.bonus.attack)), this.rng, CONFIG.player, this.bonus.crit);
     const hpBefore = g.hp;
     g.hp = applyDamage(g.hp, damage);
     g.takeHit(DIRS[dir], { flash: this.fxo('flash'), knockback: this.fxo('knockback'), squash: this.fxo('squash') });
@@ -883,7 +1056,7 @@ export class Game {
 
   private hurtPlayer(raw: number): void {
     const p = this.player;
-    const damage = guardedDamage(raw, this.fx.guard);
+    const damage = guardedDamage(raw, combineGuard(this.fx.guard, this.bonus.guard));
     p.stats.hp = applyDamage(p.stats.hp, damage);
     if (p.stats.hp > 0) p.hurt();
     else p.die();
@@ -910,7 +1083,7 @@ export class Game {
     this.timeFx.cancelSlowMo(); // 퀴즈 중 다른 몬스터 속도는 퀴즈 규칙(0.25배)만 적용
     this.held = [];
     this.queued = null;
-    const limit = CONFIG.quiz.timeLimit + this.fx.quizTime + this.stageQuizTime;
+    const limit = CONFIG.quiz.timeLimit + this.fx.quizTime + this.stageQuizTime + this.bonus.quizTime;
     this.quiz = {
       goblin: g,
       phase,
@@ -934,7 +1107,8 @@ export class Game {
     // 부활한 복습 단어가 있으면 먼저. 맞히면 다음 부활 날짜로 넘어가서 목록에서 빠진다
     const due = dueWords(this.save.review, dayKey(new Date()));
     const force = due.length && this.rng() < CONFIG.review.dueChance ? WORDS.find((w) => w.vi === pick(this.rng, due)) : undefined;
-    return makeQuestion(pool, this.save.wrong, this.rng, CONFIG.quiz.reviewChance, CONFIG.quiz.toneChance, force);
+    const reviewChance = this.bonus.review > 0 ? CONFIG.run.reviewChanceBoost : CONFIG.quiz.reviewChance;
+    return makeQuestion(pool, this.save.wrong, this.rng, reviewChance, CONFIG.quiz.toneChance, force);
   }
 
   private showQuestion(): void {
@@ -967,7 +1141,9 @@ export class Game {
     quiz.locked = true;
     this.run.quiz++;
     this.bubble.markResult(q, side);
+    const wasWrong = q.word.vi in this.save.wrong;
     this.save.wrong = updateWrongNote(this.save.wrong, q.word.vi, ok);
+    if (ok && wasWrong && this.bonus.review > 0) this.reviewBonus(q.word.vi);
     const rec = recordAnswer(this.save.dex, q.word.vi, ok, Date.now());
     this.save.dex = rec.dex;
     if (rec.newlyLearned) this.run.learned.set(q.word.vi, q.word.ko);
@@ -1050,6 +1226,7 @@ export class Game {
     sfx.kill();
     g.kill();
     this.run.kills++;
+    if (g.kind === 'golden') this.golden = 'caught';
     if (this.fxo('debris')) this.particles.burst(g.x, g.z, g.boss ? 26 : 14, MONSTER_COLOR[g.kind]);
     this.shake(g.boss ? CONFIG.feel.shakeBossKill : CONFIG.feel.shakeKill);
     if (this.fxo('hitStop')) this.timeFx.hitStop(CONFIG.feel.hitStopKill);
@@ -1059,7 +1236,8 @@ export class Game {
     if (this.fxo('zoom')) this.cam.punch(CONFIG.feel.finisherZoom, slow);
     if (g.boss) this.wave(g.x, g.z, g.kind === 'king' ? CONFIG.feel.shockwaveKingKill : CONFIG.feel.shockwaveBossKill, '#ffd45e');
     this.buzz(g.boss ? CONFIG.feel.vibrateBossKill : CONFIG.feel.vibrateKill);
-    const { exp, gold } = g.stats;
+    const { exp } = g.stats;
+    const gold = this.bonus.gold > 0 ? Math.round((g.stats.gold * (1 + this.bonus.gold)) / 500) * 500 : g.stats.gold;
     const p = this.player;
     p.stats.gold += gold;
     const { stats, levelUps } = gainExp(p.stats, exp);
@@ -1140,18 +1318,23 @@ export class Game {
     p.animate(anim, nowMs);
 
     if (this.running && this.mode === 'field') {
-      const ev = this.waves.check(this.goblins.length);
+      // 도망 다니는 황금 고블린은 웨이브 진행에 세지 않는다 (못 잡아도 다음 웨이브로)
+      const ev = this.waves.check(this.goblins.filter((g) => !g.stats.flee).length);
       if (ev?.kind === 'next') {
-        this.timers.after(CONFIG.wave.nextDelay, () => {
-          const go = () => {
-            this.waves.advance();
-            this.spawnWave(ev.index, false);
-          };
-          const hasKing = this.stage.waves[ev.index].enemies.includes('king');
-          if (this.stageIndex === 0 && ev.index === 1) this.story('intro', go);
-          else if (hasKing) this.story('king', go);
-          else go();
-        });
+        const next = () =>
+          this.timers.after(CONFIG.wave.nextDelay, () => {
+            const go = () => {
+              this.waves.advance();
+              this.spawnWave(ev.index, false);
+            };
+            const hasKing = this.stage.waves[ev.index].enemies.includes('king');
+            if (this.stageIndex === 0 && ev.index === 1) this.story('intro', go);
+            else if (hasKing) this.story('king', go);
+            else go();
+          });
+        // 판 보너스: 바닥에 물건 2개 → 하나를 주우면 다음 웨이브 (1스테이지를 처음 깨기 전에는 없음: 첫 판은 전투만 배운다)
+        if (this.veteran) this.timers.after(CONFIG.run.pickupDelay, () => this.dropPickups(next) || next());
+        else next();
       } else if (ev?.kind === 'clear') {
         this.player.cheer();
         this.timers.after(CONFIG.wave.clearDelay, () => this.finish(true));
@@ -1162,6 +1345,7 @@ export class Game {
       if (n.rig) n.rig.update(dt);
       else n.group.position.y = Math.abs(Math.sin(nowMs / 400 + n.npc.at.c)) * 0.03;
     }
+    this.pickups.forEach((pk, i) => animatePickup(pk.model, nowMs, (nowMs - pk.bornMs) / 350, i * 1.7));
     this.particles.update(anim);
     this.shockwaves.update(anim);
     this.cam.update(dt, p);
@@ -1180,6 +1364,11 @@ export class Game {
       const pos = g.model.group.position;
       const s = toScreen(camera, pos.x, 1.3 * g.stats.scale, pos.z);
       g.hpLabel.update(g.state === 'idle', s.x, s.y, g.hp / g.maxHp);
+    }
+    for (const pk of this.pickups) {
+      const s = toScreen(camera, pk.model.group.position.x, 1.05, pk.model.group.position.z);
+      pk.label.style.left = s.x + 'px';
+      pk.label.style.top = s.y + 'px';
     }
     if (this.quiz) {
       const g = this.quiz.goblin;
@@ -1212,6 +1401,14 @@ export class Game {
       const s = spots[i % spots.length];
       this.goblins.push(new Goblin(k, s.c, s.r, this.grid, this.scene, this.rng));
     });
+  }
+
+  /** 개발용: 이번 판의 다음 웨이브 대신 지금 바로 황금 고블린을 내보낸다 (npm run playtest -- --golden) */
+  debugGolden(): void {
+    if (this.mode !== 'field' || this.golden === 'out') return;
+    this.golden = 'planned';
+    this.goldenWave = -1;
+    this.spawnGolden();
   }
 
   /** 개발용: 카메라를 확대해 둔다 (몬스터 모양 확인용) */
@@ -1262,6 +1459,12 @@ export class Game {
       ending: this.ending,
       stats: { quiz: this.run.quiz, correct: this.run.correct, kills: this.run.kills, hurt: this.hurtCount, learned: this.run.learned.size },
       profile: { ...this.save.profile, collected: dexProgress(this.save.dex, WORDS).collected },
+      run: {
+        waves: this.runWaves.map((w) => w.enemies.slice()),
+        bonuses: this.bonusTaken.slice(),
+        pickups: this.pickups.map((pk) => ({ id: pk.def.id, c: pk.c, r: pk.r })),
+        golden: this.golden,
+      },
     };
   }
 

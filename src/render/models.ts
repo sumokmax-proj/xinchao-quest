@@ -69,10 +69,11 @@ export interface GoblinModel {
   mats: THREE.MeshLambertMaterial[]; // 맞았을 때 하얗게 번쩍일 재질
 }
 
-export function makeGoblin(boss: boolean): GoblinModel {
+/** tint: 색만 바꾼 고블린 (황금 고블린) */
+export function makeGoblin(boss: boolean, tint?: { skin: string; cloth: string }): GoblinModel {
   const g = new THREE.Group();
-  const skin = new THREE.MeshLambertMaterial({ color: boss ? '#4f8a2e' : '#6aa83e', emissive: '#000000' });
-  const cloth = new THREE.MeshLambertMaterial({ color: boss ? '#6b2f2f' : '#8a6a3a', emissive: '#000000' });
+  const skin = new THREE.MeshLambertMaterial({ color: tint?.skin ?? (boss ? '#4f8a2e' : '#6aa83e'), emissive: '#000000' });
+  const cloth = new THREE.MeshLambertMaterial({ color: tint?.cloth ?? (boss ? '#6b2f2f' : '#8a6a3a'), emissive: '#000000' });
   const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.19, 0.16, 4, 10), cloth);
   body.position.y = 0.36;
   g.add(body);

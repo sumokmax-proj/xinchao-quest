@@ -35,7 +35,8 @@ import { StageSelect } from '../ui/StageSelect';
 import { WordBook } from '../ui/WordBook';
 import { ShopView } from '../ui/ShopView';
 import { Cartoon, type Panel } from '../ui/Cartoon';
-import { Dialog } from '../ui/Dialog';
+import { Dialog, type DialogLink } from '../ui/Dialog';
+import { josa } from './korean';
 import { buildVillageProps, makeNpc } from '../render/village';
 import { mergeByMaterial } from '../render/merge';
 import { loadRigged, type RiggedModel } from '../render/Rigged';
@@ -53,7 +54,7 @@ import { WaveProgress, type WaveData } from './Waves';
 import { rollWave, stageMix } from './WaveRoll';
 import { combineGuard, isStruggling, noEffects, offerBonuses, pickupCells, runEffects, type BonusDef, type RunEffects } from './RunBonus';
 import { animatePickup, disposePickup, makePickup, type PickupModel } from '../render/pickups';
-import { activeNpcs, builtSet, nextBuilding, pickVillageQuestion, questionOptions, touchAt, type Npc, type VillageData } from './Village';
+import { activeNpcs, builtSet, newlyBuilt, pickVillageQuestion, rebuildGoal, questionOptions, touchAt, type Npc, type VillageData } from './Village';
 import { buy, gearEffects, guardedDamage, pickFood, suggestPurchase, useItem, type GearEffects, type ShopItem } from './Shop';
 import { isUnlocked, lastUnlocked, pickPool, recordClear, starsFor, scaleEnemy, stageWords, type StageData } from './Stages';
 
@@ -425,7 +426,13 @@ export class Game {
     else if (t.kind === 'building') {
       const collected = dexProgress(this.save.dex, WORDS).collected;
       if (collected < t.building.need) {
-        this.dialog.say(t.building.name, '…무너져 있다.', `단어 ${t.building.need}개를 모으면 다시 지어져요 (지금 ${collected}개)`);
+        this.dialog.say(
+          t.building.name,
+          '…무너져 있다.',
+          `도감에 단어 ${t.building.need}개를 모으면 다시 지어져요 (지금 ${collected}개)`,
+          undefined,
+          this.bookLink(collected),
+        );
       } else {
         this.player.wallBump();
         sfx.bump();
@@ -447,12 +454,12 @@ export class Game {
     const collected = dexProgress(this.save.dex, WORDS).collected;
     switch (npc.role) {
       case 'lord': {
-        const next = nextBuilding(VILLAGE.buildings, collected);
+        const goal = rebuildGoal(VILLAGE.buildings, collected);
         const stage = STAGES[lastUnlocked(STAGES, this.save.stages)];
-        const sub = next
-          ? `단어 ${next.need - collected}개를 더 모으면 ${next.name}이(가) 다시 지어질 것이오. 다음 목적지: ${stage.name}`
+        const sub = goal
+          ? `새 단어 ${goal.left}개만 더 익히면 ${josa(goal.name, '이', '가')} 다시 지어질 것이오. 다음 목적지: ${stage.name}`
           : `마을이 완전히 살아났소! 다음 목적지: ${stage.name}`;
-        this.dialog.say(npc.name, 'Chào dũng sĩ!', `용사여, 반갑소. ${sub}`);
+        this.dialog.say(npc.name, 'Chào dũng sĩ!', `용사여, 반갑소. ${sub}`, undefined, goal ? this.bookLink(collected) : undefined);
         this.askedThisVisit.add(npc.id);
         break;
       }
@@ -589,6 +596,7 @@ export class Game {
       seconds,
       wrongWords: this.run.wrong,
       learnedWords: this.run.learned,
+      rebuildNote: this.rebuildNote(),
     };
     const show = () => {
       this.drawDailyBars();
@@ -728,8 +736,28 @@ export class Game {
     if (pattern === 'slam') this.wave(g.x, g.z, CONFIG.feel.shockwaveSlam, '#ffe2a8');
   }
 
-  openBook(): void {
-    this.book.open(WORDS, this.save.dex, this.save.wrong);
+  /** 단어장 열기. 마을을 본 뒤라면 도감 위에 "다음 재건까지 N개" 한 줄을 붙인다 */
+  openBook(tab?: 'dex' | 'wrong'): void {
+    const goal = this.seen('village') ? rebuildGoal(VILLAGE.buildings, dexProgress(this.save.dex, WORDS).collected) : null;
+    const line = goal ? `${goal.name}까지 ${goal.left}개 · 몬스터 퀴즈를 맞히면 채워져요` : '';
+    this.book.open(WORDS, this.save.dex, this.save.wrong, tab, line);
+  }
+
+  /** 결과 화면: 이번 판에 배운 단어로 마을이 어떻게 됐는지 한 마디 (마을을 보기 전이면 '') */
+  private rebuildNote(): string {
+    if (!this.seen('village')) return '';
+    const after = dexProgress(this.save.dex, WORDS).collected;
+    const done = newlyBuilt(VILLAGE.buildings, after - this.run.learned.size, after);
+    if (done.length) return `${done.map((b) => b.name).join(' · ')} 완성!`;
+    const goal = rebuildGoal(VILLAGE.buildings, after);
+    return goal ? `${goal.name}까지 ${goal.left}개` : '';
+  }
+
+  /** 대화창 아래 "단어 도감 43 / 45 →" 버튼 (다음 재건 목표까지의 진행) */
+  private bookLink(collected: number): DialogLink | undefined {
+    const goal = rebuildGoal(VILLAGE.buildings, collected);
+    if (!goal) return undefined;
+    return { label: `단어 도감 ${collected} / ${goal.need} →`, onClick: () => this.openBook('dex') };
   }
 
   /** 상점 열기. food: 반미 가게, gear: 대장간 */

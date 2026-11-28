@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import villageJson from '../src/data/village.json';
-import { activeNpcs, builtSet, nextBuilding, pickVillageQuestion, questionOptions, touchAt, type VillageData } from '../src/core/Village';
+import { activeNpcs, builtSet, newlyBuilt, nextBuilding, rebuildGoal, pickVillageQuestion, questionOptions, touchAt, type VillageData } from '../src/core/Village';
 import { Grid } from '../src/world/Grid';
 import { seq } from './helpers';
+import { hasFinal, josa } from '../src/core/korean';
 
 const V = villageJson as VillageData;
 
@@ -96,5 +97,40 @@ describe('마을 맵 글자', () => {
     const fieldOnly = ['R', 'B', 'W', 'P', 'S', 'X', 'F'];
     V.buildings.forEach((b) => expect(fieldOnly).not.toContain(b.tile));
     V.rows.forEach((row) => fieldOnly.forEach((ch) => expect(row).not.toContain(ch)));
+  });
+});
+
+describe('마을 재건 목표', () => {
+  const B = V.buildings;
+  it('다음 건물과 남은 수', () => {
+    const fountain = B.find((b) => b.id === 'fountain')!;
+    expect(rebuildGoal(B, fountain.need - 2)).toEqual({ name: fountain.name, need: fountain.need, left: 2 });
+  });
+  it('다 지었으면 null', () => {
+    expect(rebuildGoal(B, Math.max(...B.map((b) => b.need)))).toBeNull();
+  });
+  it('한 판에 새로 지어진 건물: 기준을 넘은 것만, 적은 순', () => {
+    expect(newlyBuilt(B, 7, 8).map((b) => b.id)).toEqual(['smith']);
+    expect(newlyBuilt(B, 17, 30).map((b) => b.id)).toEqual(['school', 'cafe']);
+    expect(newlyBuilt(B, 8, 8)).toEqual([]);
+    expect(newlyBuilt(B, 0, 7)).toEqual([]);
+  });
+});
+
+describe('조사 이/가', () => {
+  it('받침 있음/없음', () => {
+    expect(josa('분수 광장', '이', '가')).toBe('분수 광장이');
+    expect(josa('카페', '이', '가')).toBe('카페가');
+    expect(josa('대장간', '이', '가')).toBe('대장간이');
+    expect(josa('서당', '이', '가')).toBe('서당이');
+  });
+  it('끝의 괄호 설명은 빼고 읽음', () => {
+    expect(josa('마을 축제 (등불)', '이', '가')).toBe('마을 축제 (등불)가');
+  });
+  it('숫자: 1·3·6·7·8·0은 받침 있음', () => {
+    expect(hasFinal('1')).toBe(true);
+    expect(hasFinal('2')).toBe(false);
+    expect(hasFinal('10')).toBe(true);
+    expect(hasFinal('5')).toBe(false);
   });
 });

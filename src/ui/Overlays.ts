@@ -18,6 +18,8 @@ export interface EndSummary {
   seconds: number;
   wrongWords: Map<string, string>; // 베트남어 → 뜻
   learnedWords: Map<string, string>; // 이번 판에 처음 맞혀서 도감에 들어간 단어
+  /** 새로 배운 단어 옆에 붙는 마을 재건 소식 (예: "분수 광장까지 2개"). 마을을 보기 전이면 '' */
+  rebuildNote: string;
 }
 
 /** 단어 목록(베트남어 → 뜻)을 <ul>에 채운다. 비어 있으면 empty 문구 한 줄 */
@@ -123,7 +125,7 @@ export function showEnd(s: EndSummary): void {
     div.append(dt, dd);
     dl.appendChild(div);
   }
-  el('endLearnedHead').textContent = `새로 배운 단어 ${s.learnedWords.size}개`;
+  el('endLearnedHead').textContent = `새로 배운 단어 ${s.learnedWords.size}개` + (s.rebuildNote ? ` · ${s.rebuildNote}` : '');
   fillWords('endLearned', s.learnedWords, '이번 판에 새로 배운 단어가 없어요');
   el('endWrongsHead').textContent = `틀린 단어 ${s.wrongWords.size}개`;
   fillWords('endWrongs', s.wrongWords, '틀린 단어가 없어요');

@@ -54,6 +54,22 @@ export function nextBuilding(buildings: readonly Building[], collected: number):
   return buildings.filter((b) => collected < b.need).sort((a, b) => a.need - b.need)[0] ?? null;
 }
 
+/** 다음 재건 목표: 건물 이름, 필요한 수, 남은 수 (다 지었으면 null) */
+export interface RebuildGoal {
+  name: string;
+  need: number;
+  left: number;
+}
+export function rebuildGoal(buildings: readonly Building[], collected: number): RebuildGoal | null {
+  const next = nextBuilding(buildings, collected);
+  return next ? { name: next.name, need: next.need, left: next.need - collected } : null;
+}
+
+/** 한 판 동안 도감이 before → after로 늘었을 때: 이번에 새로 지어진 건물들 (필요한 수가 적은 순) */
+export function newlyBuilt(buildings: readonly Building[], before: number, after: number): Building[] {
+  return buildings.filter((b) => b.need > before && b.need <= after).sort((a, b) => a.need - b.need);
+}
+
 /** 지금 마을에 나와 있는 NPC */
 export function activeNpcs(v: VillageData, collected: number): Npc[] {
   const built = builtSet(v.buildings, collected);

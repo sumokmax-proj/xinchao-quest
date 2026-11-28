@@ -1,13 +1,21 @@
 import { el } from './dom';
 
+/** 대화창 아래에 붙는 버튼 하나 (예: 왕 → 단어 도감) */
+export interface DialogLink {
+  label: string;
+  onClick: () => void;
+}
+
 /**
  * 마을 대화창 (화면 아래). NPC에게 부딪히면 뜬다.
  * - 그냥 말: 화면을 누르거나 방향키를 누르면 닫힘
  * - 질문: ← / → (D-pad 좌우, 또는 보기 버튼)로 대답. 퀴즈와 같은 조작
+ * - 링크 버튼이 있으면: 버튼을 누르면 대화를 닫고 그 화면을 연다 (나머지 자리는 그냥 닫기)
  */
 export class Dialog {
   private onClose: (() => void) | null = null;
   private onAnswer: ((side: 0 | 1) => void) | null = null;
+  private link: DialogLink | null = null;
   private shownAt = 0;
 
   constructor() {
@@ -16,6 +24,7 @@ export class Dialog {
       const btn = t.closest('button');
       if (btn?.id === 'talkL') this.answer(0);
       else if (btn?.id === 'talkR') this.answer(1);
+      else if (btn?.id === 'talkLink') this.follow();
       else this.close();
     });
   }
@@ -28,11 +37,22 @@ export class Dialog {
     return this.isOpen && this.onAnswer !== null;
   }
 
-  say(name: string, text: string, sub = '', onClose?: () => void): void {
+  say(name: string, text: string, sub = '', onClose?: () => void, link?: DialogLink): void {
     this.open(name, text, sub);
     el('talkOpts').hidden = true;
     this.onAnswer = null;
     this.onClose = onClose ?? null;
+    this.link = link ?? null;
+    el('talkLink').hidden = !link;
+    if (link) el('talkLink').textContent = link.label;
+  }
+
+  /** 링크 버튼: 대화를 닫고 연결된 화면을 연다 */
+  private follow(): void {
+    const link = this.link;
+    if (!link || performance.now() - this.shownAt < 250) return;
+    this.close();
+    link.onClick();
   }
 
   ask(name: string, text: string, sub: string, options: [string, string], onAnswer: (side: 0 | 1) => void): void {
@@ -71,6 +91,7 @@ export class Dialog {
   close(): void {
     if (!this.isOpen || this.onAnswer || performance.now() - this.shownAt < 250) return;
     el('talk').hidden = true;
+    this.link = null;
     const cb = this.onClose;
     this.onClose = null;
     cb?.();
@@ -79,12 +100,15 @@ export class Dialog {
   /** 대화를 강제로 닫기 (마을을 떠날 때) */
   reset(): void {
     el('talk').hidden = true;
+    this.link = null;
     this.onAnswer = null;
     this.onClose = null;
   }
 
   private open(name: string, text: string, sub: string): void {
     this.shownAt = performance.now();
+    this.link = null;
+    el('talkLink').hidden = true;
     el('talk').hidden = false;
     el('talkName').textContent = name;
     el('talkText').textContent = text;

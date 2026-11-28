@@ -26,12 +26,23 @@ export class WordBook {
     el('btnBookClose').addEventListener('click', () => this.close());
   }
 
-  open(words: readonly WordLike[], dex: Dex, note: Record<string, number>, tab?: Tab): void {
+  /** goal: 도감 위에 띄울 한 줄 (다음 마을 재건까지 남은 수). 없으면 숨김 */
+  open(words: readonly WordLike[], dex: Dex, note: Record<string, number>, tab?: Tab, goal = ''): void {
+    el('bookGoal').textContent = goal;
+    el('bookGoal').hidden = !goal;
     this.words = words;
     this.dex = dex;
     this.note = note;
     el('bookOv').hidden = false;
     this.show(tab ?? (Object.keys(note).length ? this.tab : 'dex'));
+    // 재건 목표를 보여 줄 때는 아직 비어 있는(? ? ?) 단어가 있는 첫 주제로 내려 준다 → "여기를 채우면 되는구나"
+    if (goal && this.tab === 'dex') {
+      const list = el('bookList');
+      const locked = list.querySelector('.wrow.locked');
+      let head = locked?.previousElementSibling ?? null;
+      while (head && head.tagName !== 'H3') head = head.previousElementSibling;
+      if (head) list.scrollTop = (head as HTMLElement).offsetTop - list.offsetTop;
+    }
   }
 
   close(): void {
